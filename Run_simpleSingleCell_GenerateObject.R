@@ -52,6 +52,11 @@ if (file.exists(metafile)){
     colData(sce) <- DataFrame(lib[fact])
   }
   remove(lib)
+} else {
+  cellIDs <- colnames(sce)
+  out.file <- paste(out,"_AllCellIDs.tsv",sep = "")
+  write.table(cellIDs,file = out.file,sep = "\t")
+  remove(cellIDs)
 }
 
 ##get unique rownames
@@ -112,10 +117,10 @@ if (file.exists(metafile)){
   saveRDS(sce,file = out.file)
 } else {
   normcounts <- as.matrix(assay(sce,"normcounts"))
-  out.file <- paste(out,"_matrix.tsv",sep = "")
+  out.file <- paste(out,"_FilteredMatrix.tsv",sep = "")
   write.table(normcounts,file = out.file, sep = "\t")
   cellIDs <- colnames(sce)
-  out.file <- paste(out,"_cellIDs.tsv",sep = "")
+  out.file <- paste(out,"_FilteredCellIDs.tsv",sep = "")
   write.table(cellIDs,file = out.file,sep = "\t")
   remove(cellIDs)
 }
