@@ -18,14 +18,14 @@ do.plot2 = 0       ##generate second plot(s) (t-sne for various factors)
 seed = 100
 
 ##specify which factors to import to object and (optionally) plot in t-sne
-factors2plot <- c("Library", "CellCycle", "TotalVirus", "TotalPB2", "TotalPB1", "TotalPA", "TotalHA", "TotalNP", "TotalNA", "TotalM", "TotalNS", "StatusInfected", "StatusPB2", "StatusPB1", "StatusPA", "StatusHA", "StatusNP", "StatusNA", "StatusM", "StatusNS", "MissingVirusGenes", "SingleMissingVirusGene", "NumMissingVirusGenes", "ClusterID", "Doublets")
+factors2plot <- c("Library", "CellCycle", "TotalVirus", "TotalPB2", "TotalPB1", "TotalPA", "TotalHA", "TotalNP", "TotalNA", "TotalM", "TotalNS", "StatusInfected", "StatusPB2", "StatusPB1", "StatusPA", "StatusHA", "StatusNP", "StatusNA", "StatusM", "StatusNS", "AnyMissingVirusGenes", "AnySingleMissingVirusGene", "NumVirusGenes", "ClusterID", "Doublets")
 
 
 ##get command line
 args <- commandArgs(TRUE)
 indir <- args[1]          ###indir: input directory. this is a folder output from CellRanger containing the raw matrix (i.e. not the filtered matrix)
 out <- args[2]            ###out: output base name (multiple files are output)
-metafile <- args[3]       ###metafile: this is currently a tab-delimited table with cell ID rows and metadata columns
+metafile <- args[3]       ###metafile: this is currently a tab-delimited table with cell ID rows and metadata columns to be added to the SCE object
 factorfile <- args[4]     ###factorfile: file containing single column of factor headers from metatable to import to object
 
 ##load initial SimpleSingleCell libraries
@@ -40,25 +40,6 @@ library(BiocSingular)
 sce <- read10xCounts(indir, col.names=TRUE)
 
 
-##load metadata if present
-if (file.exists(metafile)){
-  print(paste(a,"no!"))
-  lib <- read.table(metafile,header=TRUE,sep="\t")
-  if (factorfile){
-    factors2plot <- scan(factorfile,what = "character")
-  }
-  for (fact in factors2plot){
-    ##add metadata to singlecellexperiment object
-    colData(sce) <- DataFrame(lib[fact])
-  }
-  remove(lib)
-} else {
-  cellIDs <- colnames(sce)
-  out.file <- paste(out,"_AllCellIDs.tsv",sep = "")
-  write.table(cellIDs,file = out.file,sep = "\t")
-  remove(cellIDs)
-}
-
 ##get unique rownames
 rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
@@ -66,6 +47,23 @@ rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 location <- mapIds(EnsDb.Hsapiens.v86, keys=rowData(sce)$ID,column="SEQNAME", keytype="GENEID")
 rowData(sce)$chr <- location
 remove(location)
+
+
+##load metadata if present
+if (file.exists(metafile)){
+  lib <- read.table(metafile,header=TRUE,sep="\t")
+  if (file.exists(factorfile)){
+    factors2plot <- scan(factorfile,what = "character")
+  }
+  ##add metadata to singlecellexperiment object
+  colData(sce) <- DataFrame(lib)
+  remove(lib)
+} else {
+  cellIDs <- colnames(sce)
+  out.file <- paste(out,"_AllCellIDs.tsv",sep = "")
+  write.table(cellIDs,file = out.file,sep = "\t")
+  remove(cellIDs)
+}
 
 ##filtering out empty cells
 ##call cells: monte carlo p-values; p-value = sig difference from ambient pool rna
@@ -82,15 +80,17 @@ sce <- calculateQCMetrics(sce)  ###no MT control here, cells are infected
 ##filter 1: filter out doublets if column is present
 if (file.exists(metafile)){
   keep.doublets <- sce$Doublets == 0
-  sce <- sce[,keep.doublets]
+  sce <- sce[,which(keep.doublets)]
   remove(keep.doublets)
 }
+
 
 ##filter 2: filter cells by min expressed features (i.e. filter matrix columns)
 ##remove low feature cell columns
 keep.cell <- sce$total_features_by_counts > min.features
 sce <- sce[,keep.cell]
 remove(keep.cell)
+
 
 ##Filter Option 2: Filter features by min cells (i.e. filter rows)
 ##remove low expressed gene rows
@@ -107,6 +107,7 @@ sf <- sce@int_colData@listData$size_factor
 sce <- computeSumFactors(sce, min.mean=0.1,scaling = sf)
 remove(clusters)
 remove(sf)
+print(paste(a,7))
 ##create normalized log-expression values
 sce <- normalize(sce)
 sce <- normalize(sce,return_log = FALSE)
