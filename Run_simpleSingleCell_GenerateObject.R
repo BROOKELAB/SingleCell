@@ -1,65 +1,63 @@
 #! /usr/bin/env Rscript
 
-##get command line
-args <- commandArgs(TRUE)
-indir <- args[1]          ###indir: input directory. this is a folder output from CellRanger containing the raw matrix (i.e. not the filtered matrix)
-metafile <- args[2]       ###metafile: this is currently "VirusCategories_forR_NewCategories_wCC.txt"
-out <- args[3]            ###out: output base name (multiple files are output)
+##libraries used/installed:
+##simpleSingleCell_1.8.0
+##EnsDb.Hsapiens.v86_2.99.0  ##edit to different ENSEMBL version if needed
+##DropletUtils_1.4.1
+##scater_1.12.2
+##scran_1.12.1
+##BiocSingular_1.0.0
 
 ###defaults/settings
 min.features = 400 ##min features/cell for column filter
 min.cells = 4      ##min cells/feature for row filter
-min.counts = 50    ##min 
+min.counts = 50    ##min molecule count per cell for column filter OPTIONAL?
 perp = 50          ##perplexity for tsne plot
 do.plot1 = 0       ##generate first plot (top 10 bio-variance genes (non-virus))
-do.plot2 = 1       ##generate second plot(s) (t-sne for various factors)
-##specify which factors to plot in t-sne
-factors2plot <- c("library", "cellcycle", "TotalVirus", "TotalPB2", "TotalPB1", "TotalPA", "TotalHA", "TotalNP", "TotalNA", "TotalM2", "TotalM1", "TotalNS1", "TotalNEP", "StatusInfected", "StatusPB2", "StatusPB1", "StatusPA", "StatusHA", "StatusNP", "StatusNA", "StatusM2", "StatusM1", "StatusNS1", "StatusNEP", "MissingVirusGenes", "SingleMissingVirusGene", "NumMissingVirusGenes", "Cluster")
+do.plot2 = 0       ##generate second plot(s) (t-sne for various factors)
+seed = 100
 
-##load first libraries
+##specify which factors to import to object and (optionally) plot in t-sne
+factors2plot <- c("Library", "CellCycle", "TotalVirus", "TotalPB2", "TotalPB1", "TotalPA", "TotalHA", "TotalNP", "TotalNA", "TotalM", "TotalNS", "StatusInfected", "StatusPB2", "StatusPB1", "StatusPA", "StatusHA", "StatusNP", "StatusNA", "StatusM", "StatusNS", "MissingVirusGenes", "SingleMissingVirusGene", "NumMissingVirusGenes", "ClusterID", "Doublets")
+
+
+##get command line
+args <- commandArgs(TRUE)
+indir <- args[1]          ###indir: input directory. this is a folder output from CellRanger containing the raw matrix (i.e. not the filtered matrix)
+out <- args[2]            ###out: output base name (multiple files are output)
+metafile <- args[3]       ###metafile: this is currently a tab-delimited table with cell ID rows and metadata columns
+factorfile <- args[4]     ###factorfile: file containing single column of factor headers from metatable to import to object
+
+##load initial SimpleSingleCell libraries
 library(simpleSingleCell)
+library(DropletUtils)
+library(scater)
+library(EnsDb.Hsapiens.v86)
+library(scran)
+library(BiocSingular)
 
 ##load object
 sce <- read10xCounts(indir, col.names=TRUE)
 
-##load cellcycle and other metadata
-lib <- read.table(metafile,header=TRUE,sep="\t")
 
-##add metadata to singlecellexperiment object
-colData(sce)$library <- lib$library
-colData(sce)$cellcycle <- lib$cellcycle
-colData(sce)$TotalVirus <- lib$Virus_proportion
-colData(sce)$TotalPB2 <- lib$PB2_proportion
-colData(sce)$TotalPB1 <- lib$PB1_proportion
-colData(sce)$TotalPA <- lib$PA_proportion
-colData(sce)$TotalHA <- lib$HA_proportion
-colData(sce)$TotalNP <- lib$NP_proportion
-colData(sce)$TotalNA <- lib$NA_proportion
-colData(sce)$TotalM2 <- lib$M2_proportion
-colData(sce)$TotalM1 <- lib$M1_proportion
-colData(sce)$TotalNS1 <- lib$NS1_proportion
-colData(sce)$TotalNEP <- lib$NEP_proportion
-colData(sce)$StatusInfected <- lib$infected_cell
-colData(sce)$StatusPB2 <- lib$PB2_status
-colData(sce)$StatusPB1 <- lib$PB1_status
-colData(sce)$StatusPA <- lib$PA_status
-colData(sce)$StatusHA <- lib$HA_status
-colData(sce)$StatusNP <- lib$NP_status
-colData(sce)$StatusNA <- lib$NA_status
-colData(sce)$StatusM2 <- lib$M2_status
-colData(sce)$StatusM1 <- lib$M1_status
-colData(sce)$StatusNS1 <- lib$NS1_status
-colData(sce)$StatusNEP <- lib$NEP_status
-colData(sce)$MissingVirusGenes <- lib$Infected_MissingGenes
-colData(sce)$SingleMissingVirusGene <- lib$Infected_SingleMissingGene
-colData(sce)$NumMissingVirusGenes <- lib$Infected_NumMissingGenes
-remove(lib)
+##load metadata if present
+if (file.exists(metafile)){
+  print(paste(a,"no!"))
+  lib <- read.table(metafile,header=TRUE,sep="\t")
+  if (factorfile){
+    factors2plot <- scan(factorfile,what = "character")
+  }
+  for (fact in factors2plot){
+    ##add metadata to singlecellexperiment object
+    colData(sce) <- DataFrame(lib[fact])
+  }
+  remove(lib)
+}
 
 ##get unique rownames
 rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
 ##add chromosome location info
-library(EnsDb.Hsapiens.v86)
 location <- mapIds(EnsDb.Hsapiens.v86, keys=rowData(sce)$ID,column="SEQNAME", keytype="GENEID")
 rowData(sce)$chr <- location
 remove(location)
@@ -67,15 +65,23 @@ remove(location)
 ##filtering out empty cells
 ##call cells: monte carlo p-values; p-value = sig difference from ambient pool rna
 ##defaultDrops() is alternative that uses 10X method (more conservative, requires cell count)
-set.seed(100)
+set.seed(seed)
 e.out <- emptyDrops(counts(sce))
 #using which() to automatically remove NAs and retain only detected cells
-sce <- sce[,which(e.out$FDR <= 0.01)]
+sce <- sce[,which(e.out$FDR <= 0.001)]
 
 ##calculate preliminary QC stats
-sce <- calculateQCMetrics(sce)  ###no MT control here
+sce <- calculateQCMetrics(sce)  ###no MT control here, cells are infected
 
-##filter option 1: filter cells by min expressed features (i.e. filter columns)
+
+##filter 1: filter out doublets if column is present
+if (file.exists(metafile)){
+  keep.doublets <- sce$Doublets == 0
+  sce <- sce[,keep.doublets]
+  remove(keep.doublets)
+}
+
+##filter 2: filter cells by min expressed features (i.e. filter matrix columns)
 ##remove low feature cell columns
 keep.cell <- sce$total_features_by_counts > min.features
 sce <- sce[,keep.cell]
@@ -88,16 +94,36 @@ sce <- sce[keep.feature,]
 remove(keep.feature)
 
 ##generate quick clusters for normalization
-clusters <- quickCluster(sce, method="igraph", min.mean=0.1,irlba.args=list(maxit=1000))
+clusters <- quickCluster(sce, use.ranks=FALSE, BSPARAM=IrlbaParam())
+
 ##create size factors for normalizing within clusters
 sce <- computeSumFactors(sce, min.mean=0.1, cluster=clusters)
+sf <- sce@int_colData@listData$size_factor
+sce <- computeSumFactors(sce, min.mean=0.1,scaling = sf)
 remove(clusters)
+remove(sf)
 ##create normalized log-expression values
 sce <- normalize(sce)
+sce <- normalize(sce,return_log = FALSE)
 
-##model technical noise, assumes noise is Poisson
-new.trend <- makeTechTrend(x=sce)
+if (file.exists(metafile)){
+  ##save Seurat-safe object
+  out.file <- paste(out,".rds",sep = "")
+  saveRDS(sce,file = out.file)
+} else {
+  normcounts <- as.matrix(assay(sce,"normcounts"))
+  out.file <- paste(out,"_matrix.tsv",sep = "")
+  write.table(normcounts,file = out.file, sep = "\t")
+  cellIDs <- colnames(sce)
+  out.file <- paste(out,"_cellIDs.tsv",sep = "")
+  write.table(cellIDs,file = out.file,sep = "\t")
+  remove(cellIDs)
+}
+
+
 if (do.plot1){
+  ##model technical noise, assumes noise is Poisson
+  new.trend <- makeTechTrend(x=sce)
   ##generate top (non-virus) 10 gene biological variance plots
   fit <- trendVar(sce, use.spikes=FALSE, loess.args=list(span=0.05))
   fit0 <- fit
@@ -114,19 +140,18 @@ if (do.plot1){
 }
 
 
-##choosing dimension number in data
-sce <- denoisePCA(sce, technical=new.trend, approx=TRUE)
-
-##t-sne
-sce <- runTSNE(sce, use_dimred="PCA", perplexity=perp, rand_seed=100)
-
-##clustering on PCAs
-snn.gr <- buildSNNGraph(sce, use.dimred="PCA")
-clusters <- igraph::cluster_walktrap(snn.gr)
-sce$Cluster <- factor(clusters$membership)
-
-##make t-sne plots
+##make Scran t-sne plots
 if (do.plot2){
+  ##choosing dimension number in data
+  sce <- denoisePCA(sce, technical=new.trend, BSPARAM=IrlbaParam())
+  
+  ##t-sne
+  sce <- runTSNE(sce, use_dimred="PCA", perplexity=perp, rand_seed=seed)
+  
+  ##clustering on PCAs
+  snn.gr <- buildSNNGraph(sce, use.dimred="PCA")
+  clusters <- igraph::cluster_walktrap(snn.gr)
+  sce$Cluster <- factor(clusters$membership)
   for (i in 1:length(factors2plot)){
     plot2 <- plotTSNE(sce, colour_by=factors2plot[i])
     out.plot2 <- paste(out,"_",factors2plot[i],".pdf",sept = "")
@@ -136,9 +161,5 @@ if (do.plot2){
     remove(plot2)
   }
 }
-
-##save simpleSingleCell object
-out.file <- paste(out,".rds",sep = "")
-saveRDS(sce,file = out.file)
 
 q()
