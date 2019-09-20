@@ -11,17 +11,17 @@ The scripts require either R or Perl to be installed and made available from the
 * Perl (v5.24.2)
 
 The following R packages are also required (with versions used during testing included in parentheses):
-simpleSingleCell (v1.8.0)
-EnsDb.Hsapiens.v86 (v2.99.0)
-DropletUtils (v1.4.1)
-scater (v1.12.2)
-scran (v1.12.1)
-BiocSingular (v1.0.0)
-Seurat (v3.0.2)
-ggplot2 (v3.1.1)
-svglite (v1.2.2)
-dplyr (v0.8.1)
-magrittr (v1.5)
+* simpleSingleCell (v1.8.0)
+* EnsDb.Hsapiens.v86 (v2.99.0)
+* DropletUtils (v1.4.1)
+* scater (v1.12.2)
+* scran (v1.12.1)
+* BiocSingular (v1.0.0)
+* Seurat (v3.0.2)
+* ggplot2 (v3.1.1)
+* svglite (v1.2.2)
+* dplyr (v0.8.1)
+* magrittr (v1.5)
 
 
 ### preliminary steps: 
