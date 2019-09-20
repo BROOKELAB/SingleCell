@@ -96,7 +96,7 @@ write.table(de,file = out.file,sep = "\t")
 ##on StatusInfected: Infected vs notInfected
 Idents(so) <- "StatusInfected"
 de <- FindMarkers(so, ident.1 = "Infected", test.use = "MAST",min.pct = 0.01, random.seed = seed)
-out.file <- paste(out,"_Seurat_MAST_DGElist_AllCells_Library.txt",sep = "")
+out.file <- paste(out,"_Seurat_MAST_DGElist_AllCells_StatusInfected.txt",sep = "")
 write.table(de,file = out.file,sep = "\t")
 
 ##individual missing virus genes
