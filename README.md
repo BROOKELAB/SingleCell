@@ -22,7 +22,7 @@ The following R packages are also required (with versions used during testing in
 * svglite (v1.2.2)
 * dplyr (v0.8.1)
 * magrittr (v1.5)
-
+* NBID (v0.1.1)
 
 ### preliminary steps: 
 Raw reads should be demultiplexed and mapped to a host/virus hybrid reference using the 10X Chromium Cell Ranger software package:
@@ -42,7 +42,18 @@ https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/l
 -5- run the Cell Ranger Aggr function on all experimental libraries to combine them into a single matrix.
 
 ### first script: Run_simpleSingleCell_GenerateObject.R
-generate the filtered/normalized/annotated matrix from the raw Cell Ranger matrix output.
+generate the filtered/normalized/annotated matrix from the raw Cell Ranger matrix output. This script should be run twice, the first time to generate a filtered/normalized matrix in text (tab-delimited) format and the unfiltered CellID list.  These tables are used to generate the metadata/factors that can then be imported by running the script a second time to produce the final, filtered/normalized/annotated matrix.
 
 #### running the first script:
-run the script from the command line the first time to generate 
+run the script from the command line using the following options:
+input1: path to raw Cell Ranger matrix files
+input2: output base file name
+
+> e.g. Rscript Run_simpleSingleCell_GenerateObject.R Path/to/Raw/CellRanger/Matrix OutputBaseName
+
+The script performs preliminary quality filtering and count normalization using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
+output1: filtered, normalized matrix file (tab-delimited text file)
+output2: raw matrix Cell ID list
+
+#### generating the metadata table:
+generate the required cell annotations using the 
