@@ -7,8 +7,8 @@ These scripts use the SimpleSingleCell and Seurat packages to perform various an
 
 ### requirements:
 The scripts require either R or Perl to be installed and made available from the command line (with versions used during testing included in parentheses):
-R (v3.6.0)
-Perl (v5.24.2)
+~ R (v3.6.0)
+~ Perl (v5.24.2)
 
 The following R packages are also required (with versions used during testing included in parentheses):
 simpleSingleCell (v1.8.0)
