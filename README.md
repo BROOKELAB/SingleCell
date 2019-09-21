@@ -46,12 +46,14 @@ generate the filtered/normalized/annotated matrix from the raw Cell Ranger matri
 
 #### running the first script, first time:
 run the script from the command line once using the following options:
+
 input1: path to raw Cell Ranger matrix files
 input2: output base file name
 
 > e.g. Rscript Run_simpleSingleCell_GenerateObject.R Path/to/Raw/CellRanger/Matrix OutputBaseName
 
 The script performs preliminary quality filtering and count normalization using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
+
 output1: filtered, normalized matrix file (tab-delimited text file)
 output2: raw matrix Cell ID list
 
