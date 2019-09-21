@@ -44,8 +44,8 @@ https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/l
 ### first script: Run_simpleSingleCell_GenerateObject.R
 generate the filtered/normalized/annotated matrix from the raw Cell Ranger matrix output. This script should be run twice, the first time to generate a filtered/normalized matrix in text (tab-delimited) format and the unfiltered CellID list.  These tables are used to generate the metadata/factors that can then be imported by running the script a second time to produce the final, filtered/normalized/annotated matrix.
 
-#### running the first script:
-run the script from the command line using the following options:
+#### running the first script, first time:
+run the script from the command line once using the following options:
 input1: path to raw Cell Ranger matrix files
 input2: output base file name
 
@@ -56,4 +56,25 @@ output1: filtered, normalized matrix file (tab-delimited text file)
 output2: raw matrix Cell ID list
 
 #### generating the metadata table:
-generate the required cell annotations using the 
+generate the required cell annotations using the filtered, normalized matrix and combine with the raw matrix CellIDs to import back into the matrix object for downstream analysis (see example metadata table: ).
+
+Required Factors/Cell annotations: Library, CellCycle, StatusInfected, StatusPB2, StatusPB1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS, NumVirusGenes, ClusterID, Doublets
+
+Optional Cell Annotations: TotalVirus, TotalPB2, TotalPB1, TotalPA, TotalHA, TotalNP, TotalNA, TotalM, TotalNS, AnyMissingVirusGenes, AnySingleMissingVirusGene
+
+Library: experimental library (e.g. treatment).
+CellCycle: cell cycle stage, as determined by the Cyclone tool in the Scran package (see Run_simpleSingleCell_Scran_CellCycle.R script).
+StatusInfected: cell infected status based on virus molecular count threshold (e.g. virus count versus expected virus background).
+Status\[VirusGene\]: virus gene presence/absence based on virus gene molecular count threshold (see StatusInfected).
+NumVirusGenes: number of virus genes present (i.e. expressed) in cell.
+Doublets: binary tag (i.e. 1 or 0) for droplets that are considered doublets for filtering purposes.
+
+#### running the first script, second time:
+Run the first script a second time using the following options:
+input1: path to raw Cell Ranger matrix files
+input2: output base file name
+input3: metadata table file name
+
+The script performs preliminary quality filtering, count normalization, and matrix annotation using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
+output1: filtered, normalized, and annotated matrix file (RDS format) suitable for downstream analysis
+
