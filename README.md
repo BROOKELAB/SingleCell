@@ -56,7 +56,7 @@ output1: filtered, normalized matrix file (tab-delimited text file)
 output2: raw matrix Cell ID list
 
 #### generating the metadata table:
-generate the required cell annotations using the filtered, normalized matrix and combine with the raw matrix CellIDs to import back into the matrix object for downstream analysis (see example metadata table: ).
+generate the required cell annotations using the filtered, normalized matrix and combine with the raw matrix CellIDs to import back into the matrix object for downstream analysis (see example metadata table: MetaDataTable_Example.txt).
 
 Required Factors/Cell annotations: Library, CellCycle, StatusInfected, StatusPB2, StatusPB1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS, NumVirusGenes, ClusterID, Doublets
 
