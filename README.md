@@ -37,9 +37,10 @@ https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/l
 
 -3- Add virus annotation to the human reference GTF annotation file.  This may require manual editing of the added virus rows to conform to GTF format standards (e.g. each virus gene should have gene, transcript, and exon rows; all rows should have unique ID tags).
 
--4- run the Cell Ranger Count function separately on each experimental library.
+-4- run the Cell Ranger mkgtf function to filter the the new GTF file.
 
--5- run the Cell Ranger Aggr function on all experimental libraries to combine them into a single matrix.
+-5- run the Cell Ranger mkref function to index and prepare the new hybrid virus/host reference for use with Cell Ranger.
+
 
 ### first script: Run_simpleSingleCell_GenerateObject.R
 generate the filtered/normalized/annotated matrix from the raw Cell Ranger matrix output. This script should be run twice, the first time to generate a filtered/normalized matrix in text (tab-delimited) format and the unfiltered CellID list.  These tables are used to generate the metadata/factors that can then be imported by running the script a second time to produce the final, filtered/normalized/annotated matrix.

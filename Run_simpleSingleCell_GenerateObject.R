@@ -107,7 +107,7 @@ sf <- sce@int_colData@listData$size_factor
 sce <- computeSumFactors(sce, min.mean=0.1,scaling = sf)
 remove(clusters)
 remove(sf)
-print(paste(a,7))
+
 ##create normalized log-expression values
 sce <- normalize(sce)
 sce <- normalize(sce,return_log = FALSE)
