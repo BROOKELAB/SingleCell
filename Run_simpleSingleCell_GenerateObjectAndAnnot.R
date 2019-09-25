@@ -101,6 +101,13 @@ rm(cellcycles)
 rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
 
+## get sample info
+
+sce$Sample <- substring(sce$Barcode, 18) %>% as.numeric()
+sce$Library <- c("Bystander","Mock","Infected")[sce$Sample]
+
+
+
 
 ##Filter Option 2: Filter features by min cells (i.e. filter rows)
 ##remove low expressed gene rows
