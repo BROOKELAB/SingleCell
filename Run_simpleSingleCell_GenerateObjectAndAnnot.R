@@ -92,6 +92,14 @@ sce <- sce[,keep.cell]
 remove(keep.cell)
 
 
+##create cell cycle scores
+
+hs.pairs <- readRDS(system.file("exdata", "human_cycle_markers.rds", package="scran"))
+cellcycles <- cyclone(sce, pairs=hs.pairs)
+
+
+
+
 ##Filter Option 2: Filter features by min cells (i.e. filter rows)
 ##remove low expressed gene rows
 keep.feature <- nexprs(sce, byrow=TRUE) >= min.cells
