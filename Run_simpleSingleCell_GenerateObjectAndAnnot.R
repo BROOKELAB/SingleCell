@@ -93,6 +93,8 @@ remove(keep.cell)
 
 hs.pairs <- readRDS(system.file("exdata", "human_cycle_markers.rds", package="scran"))
 cellcycles <- cyclone(sce, pairs=hs.pairs)
+sce$phase <- cellcycles$phases
+rm(cellcycles)
 
 
 ##get unique rownames
