@@ -40,9 +40,6 @@ library(BiocSingular)
 sce <- read10xCounts(indir, col.names=TRUE)
 
 
-##get unique rownames
-rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
-
 ##add chromosome location info
 location <- mapIds(EnsDb.Hsapiens.v86, keys=rowData(sce)$ID,column="SEQNAME", keytype="GENEID")
 rowData(sce)$chr <- location
@@ -97,6 +94,9 @@ remove(keep.cell)
 hs.pairs <- readRDS(system.file("exdata", "human_cycle_markers.rds", package="scran"))
 cellcycles <- cyclone(sce, pairs=hs.pairs)
 
+
+##get unique rownames
+rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
 
 
