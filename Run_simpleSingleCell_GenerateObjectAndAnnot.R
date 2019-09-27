@@ -150,7 +150,7 @@ assay(sce,"props") <- t(t(normcounts) /  colSums(normcounts))
 rm(normcounts)
 
 
-## Calculate proportion of all reads from virus
+## Calculate proportion of all reads from virus and call infection status
 
 virusPropTotal <- colSums(tail(as.matrix(assay(sce,"props")),8))
 
@@ -159,6 +159,45 @@ virusPropTotal <- colSums(tail(as.matrix(assay(sce,"props")),8))
 By.no0.90pctile <- quantile(virusPropTotal[virusPropTotal > 0 & sce$Library == "Bystander"], probs = 0.9)
 
 sce$InfectedStatus <-  ifelse(virusPropTotal > By.no0.90pctile, "infected", "notinfected")
+
+
+## Calculate individual virus gene proportions and call present/absent
+
+virusPropGenes <- tail(as.matrix(assay(sce,"props")),8) %>% t()
+
+Vgenes.info <- matrix(NA, nrow = 8, ncol = 2, dimnames = list(colnames(virusPropGenes), c("NumNon0By","pctile90")))
+
+for (i in 1:8){
+  temp <- virusPropGenes[virusPropGenes[ ,i] > 0 & sce$Library == "Bystander" ,i]
+  Vgenes.info[i,1] <- length(temp)
+  Vgenes.info[i,2] <- quantile(temp, probs = 0.9)
+}
+
+Vgenes.status <- data.frame(matrix(NA, nrow = ncol(sce), ncol = 8, dimnames = list(colnames(sce), paste0(colnames(virusPropGenes), "_Status"))))
+
+for (i in 1:8) {
+  Vgenes.status[,i] <- ifelse(virusPropGenes[,i] > Vgenes.info[i,2], "Present", "Absent")
+}
+
+
+## Add in AnyMissingGenes	AnySingleMissingGene	NumVirusGenes
+
+Vgenes.status$AnyMissingGenes <- dplyr::case_when(rowSums(Vgenes.status[,1:8] =="Absent") == 8 ~ "notInfected",
+                                                  rowSums(Vgenes.status[,1:8] =="Absent") == 0 ~ "notMissing",
+                                                  rowSums(Vgenes.status[,1:8] =="Absent") > 0 & rowSums(Vgenes.status[,1:8] =="Absent") < 0 ~ "Missing")
+                                                  
+Vgenes.status$AnySingleMissingGene <- dplyr::case_when(rowSums(Vgenes.status[,1:8] =="Absent") == 8 ~ "notInfected",
+                                                  rowSums(Vgenes.status[,1:8] =="Absent") == 7 ~ "One",
+                                                  rowSums(Vgenes.status[,1:8] =="Absent") < 7 ~ "notOne")
+
+
+Vgenes.status$NumVirusGenes <- rowSums(Vgenes.status[,1:8] =="Present")
+
+
+
+options(stringsAsFactors = FALSE)
+colData(sce) <- cbind(colData(sce), Vgenes.status)
+options(stringsAsFactors = TRUE)
 
 
 
