@@ -200,6 +200,12 @@ colData(sce) <- cbind(colData(sce), Vgenes.status)
 options(stringsAsFactors = TRUE)
 
 
+## calculate doublets based on total host norm counts (minus virus)
+
+hostNormTotal <- colSums(head(as.matrix(assay(sce,"normcounts")),-8))
+
+#separately by library or all together?!?
+
 
 
 if (file.exists(metafile)){
