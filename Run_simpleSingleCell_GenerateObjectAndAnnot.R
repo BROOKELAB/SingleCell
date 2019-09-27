@@ -35,13 +35,18 @@ library(scater)
 library(EnsDb.Hsapiens.v86)
 library(scran)
 library(BiocSingular)
+library(magrittr)
+
+
+#sce <- readRDS("results/test_GenerateObject/2019-09-26-sce.rds")
+
 
 ##load object
 sce <- read10xCounts(indir, col.names=TRUE)
 
 
 ##add chromosome location info
-location <- mapIds(EnsDb.Hsapiens.v86, keys=rowData(sce)$ID,column="SEQNAME", keytype="GENEID")
+location <- mapIds(EnsDb.Hsapiens.v86, keys=rowData(sce)$ID, column="SEQNAME", keytype="GENEID")
 rowData(sce)$chr <- location
 remove(location)
 
@@ -89,6 +94,13 @@ sce <- sce[,keep.cell]
 remove(keep.cell)
 
 
+## get sample info
+
+sce$Sample <- substring(sce$Barcode, 18) %>% as.numeric()
+sce$Library <- c("Bystander","Mock","Infected")[sce$Sample]
+
+
+
 ##create cell cycle scores
 
 hs.pairs <- readRDS(system.file("exdata", "human_cycle_markers.rds", package="scran"))
@@ -100,11 +112,10 @@ rm(cellcycles)
 ##get unique rownames
 rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
+## fix NA gene name
 
-## get sample info
+rownames(sce)[nrow(sce)-2] <- "NA"
 
-sce$Sample <- substring(sce$Barcode, 18) %>% as.numeric()
-sce$Library <- c("Bystander","Mock","Infected")[sce$Sample]
 
 
 
@@ -128,6 +139,29 @@ remove(sf)
 ##create normalized log-expression values
 sce <- normalize(sce)
 sce <- normalize(sce,return_log = FALSE)
+
+
+## get porportion values from normcounts
+
+normcounts <- as.matrix(assay(sce,"normcounts"))
+
+assay(sce,"props") <- t(t(normcounts) /  colSums(normcounts)) 
+
+rm(normcounts)
+
+
+## Calculate proportion of all reads from virus
+
+virusPropTotal <- colSums(tail(as.matrix(assay(sce,"props")),8))
+
+#use 90th pct of bystander proportion as threshold for "infected"
+
+By.no0.90pctile <- quantile(virusPropTotal[virusPropTotal > 0 & sce$Library == "Bystander"], probs = 0.9)
+
+sce$InfectedStatus <-  ifelse(virusPropTotal > By.no0.90pctile, "infected", "notinfected")
+
+
+
 
 if (file.exists(metafile)){
   ##save Seurat-safe object
