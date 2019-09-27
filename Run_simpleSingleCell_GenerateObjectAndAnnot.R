@@ -206,6 +206,37 @@ hostNormTotal <- colSums(head(as.matrix(assay(sce,"normcounts")),-8))
 
 #separately by library or all together?!?
 
+hostNormTotal <- colSums(head(as.matrix(assay(sce,"normcounts")),-8))
+
+jpeg(paste0(out,"HostNormCountTotalDistributions.jpeg"), width = 7, height = 14, units = "in", res = 300, quality = 100)
+layout(matrix(1:4, 4,1))
+hist(hostNormTotal, 1000, xlim = c(9900, 72000), main = "all 3 host total norm counts")
+abline(v = 2*median(hostNormTotal), col = 2)
+hist(hostNormTotal[sce$Library == "Mock"], 1000, xlim = c(9900, 72000), main = "Mock host total norm counts")
+abline(v = 2*median(hostNormTotal[sce$Library == "Mock"]), col = 2)
+hist(hostNormTotal[sce$Library == "Bystander"], 1000, xlim = c(9900, 72000), main = "Bystander host total norm counts")
+abline(v = 2*median(hostNormTotal[sce$Library == "Bystander"]), col = 2)
+hist(hostNormTotal[sce$Library == "Infected"], 1000, xlim = c(9900, 72000), main = "Infected host total norm counts")
+abline(v = 2*median(hostNormTotal[sce$Library == "Infected"]), col = 2)
+dev.off()
+
+#check raw counts
+
+hostRawTotal <- colSums(head(as.matrix(assay(sce,"counts")),-8))
+
+jpeg(paste0(out,"HostRawCountTotalDistributions.jpeg"), width = 7, height = 14, units = "in", res = 300, quality = 100)
+layout(matrix(1:4, 4,1))
+hist(hostRawTotal, 1000, xlim = c(700, 83100), main = "all 3 host total raw counts")
+abline(v = 2*median(hostRawTotal), col = 2)
+hist(hostRawTotal[sce$Library == "Mock"], 1000, xlim = c(700, 83100), main = "Mock host total raw counts")
+abline(v = 2*median(hostRawTotal[sce$Library == "Mock"]), col = 2)
+hist(hostRawTotal[sce$Library == "Bystander"], 1000, xlim = c(700, 83100), main = "Bystander host total raw counts")
+abline(v = 2*median(hostRawTotal[sce$Library == "Bystander"]), col = 2)
+hist(hostRawTotal[sce$Library == "Infected"], 1000, xlim = c(700, 83100), main = "Infected host total raw counts")
+abline(v = 2*median(hostRawTotal[sce$Library == "Infected"]), col = 2)
+dev.off()
+
+
 
 
 if (file.exists(metafile)){
