@@ -81,7 +81,7 @@ so_infected <- RunTSNE(object = so_infected, dims = 1:20, perplexity = perp, see
 ##run DGE between clusters for infected cells and print out a heatmap
 so_infected.markers <- FindAllMarkers(so_infected, test.use = "MAST",  min.pct = 0.01, logfc.threshold = 0.25,random.seed = seed)
 top10 <- so_infected.markers %>% group_by(cluster) %>% top_n(n = 10, wt = avg_logFC)
-out.file <- paste(out,"_Seurat_MAST_DGElist_InfectedCells_SeuratClusters.svg",sep = "")
+out.file <- paste(out,"_Seurat_MAST_DGElist_InfectedCells_SeuratClusters.txt",sep = "")
 write.table(so_infected.markers,file = out.file,sep = "\t")
 plot <- DoHeatmap(so_infected, features = top10$gene) + NoLegend()
 plot + theme(axis.text.y.left = element_text(size = rel(.5)))
