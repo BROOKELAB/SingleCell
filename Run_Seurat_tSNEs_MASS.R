@@ -167,6 +167,7 @@ ggsave(out.file, width = 8, height = 5)
 
 ###print out infected cells tSNE plots###
 ##Seurat Clusters
+Idents(so_infected) <- "seurat_clusters"
 plot <- DimPlot(so_infected, reduction = "tsne")
 plot + theme(title = element_text(size = rel(1.5)), plot.title = element_text(size = rel(2)), legend.text = element_text(size = rel(1.25)))
 out.file <- paste(out,"_Seurat_tSNE_InfectedCells_SeuratClusters.svg",sep = "")
