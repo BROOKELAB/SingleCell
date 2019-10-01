@@ -79,3 +79,4 @@ Run the first script a second time using the following options:
 The script performs preliminary quality filtering, count normalization, and matrix annotation using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
 - output1: filtered, normalized, and annotated matrix file (RDS format) suitable for downstream analysis
 
+### Combine DGE tables: 
