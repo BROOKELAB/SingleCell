@@ -83,9 +83,9 @@ The script performs preliminary quality filtering, count normalization, and matr
 combine differential gene expression tables (i.e. DGE lists) from different tools (i.e. NBID and MAST) or from different factors (e.g. StatusPB2, StatusPB1, and StatusPA) using a minimum intersection value. This allows results to be easily compared or for more robust differentially expressed genes to be selected (i.e. those genes called by both NBID and MAST).
 
 - inputs:
-      -d: path to a directory containing DGE tables to be combined/compared.  Files must have the .tsv extention and have the   following file name format: FileBaseName_\[MAST/NBID/Combined\]_\[FactorName\].tsv
-      -o: output file name
-      -x: minimum intersection value
+      - -d: path to a directory containing DGE tables to be combined/compared.  Files must have the .tsv extention and have the   following file name format: FileBaseName_\[MAST/NBID/Combined\]_\[FactorName\].tsv
+      - -o: output file name
+      - -x: minimum intersection value
       
  - outputs: a tab-delimited table containing the ID column and the FDR/p-value and log2FC columns for each input file. 
 
