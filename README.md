@@ -87,7 +87,8 @@ combine differential gene expression tables (i.e. DGE lists) from different tool
      -o: output file name
      -x: minimum intersection value
       
- - outputs: a tab-delimited table containing the ID column and the FDR/p-value and log2FC columns for each input file. 
+ #### outputs:
+     a tab-delimited table containing the ID column and the FDR/p-value and log2FC columns for each input file. 
 
 > e.g. perl CompareLists_DGE.pl -d DGE/input/files/ -o OutputFileName.tsv -x 2
 
