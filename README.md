@@ -87,8 +87,11 @@ script to run Seurat and MAST functions in order to generate tSNE plots and DGE 
 #### output1: high quality tSNE plots for the following:
      - all cells: Library, Cell Cycle, Total Virus (proportion)
      - infected cells: Library, Cell Cycle, Total Virus (proportion)
-     - 
-#### output2: 
+    
+#### output2: DGE lists
+     - all cells: Library, Seurat clusters
+     -infected cells: Seurat clusters, StatusPb2, StatusPb1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS
+
 
 ### Perl Script to Combine DGE tables: CompareLists_DGE.pl
 combine differential gene expression tables (i.e. DGE lists) from different tools (i.e. NBID and MAST) or from different factors (e.g. StatusPB2, StatusPB1, and StatusPA) using a minimum intersection value. This allows results to be easily compared or for more robust differentially expressed genes to be selected (i.e. those genes called by both NBID and MAST).
