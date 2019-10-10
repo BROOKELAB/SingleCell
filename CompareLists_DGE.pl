@@ -6,8 +6,8 @@
 ##compare/combine multiple lists of DGE results and return the intersection based on a minimum representation parameter (e.g. result must occure in two out of three lists).
 ##Can input DGE lists from MAST, NBID, and output from this script.
 ##NOTES:
-##+input files must have the .tsv extension to be parsed
-##+input files should be renamed to contain two unique identifyers for Tool and Factor seperated by underscores at end of file name, as such: AnyString_[DGE Tool Name]_[Factor Tested].tsv
+##+input files must have the .tsv or .txt extension to be parsed
+##+input files should be renamed to contain two unique identifyers for Tool and Factor seperated by underscores at end of file name, as such: AnyString_[DGE Tool Name]_[Factor Tested].[tsv/txt]
 
 #use strict;
 use Cwd;
@@ -45,7 +45,7 @@ $indir = File::Spec->rel2abs($indir);
 
 ##get all
 opendir(INDIR,$indir) or die "Can't open directory: $indir: $!\n";
-my @inputfiles = grep {m/\.tsv$/ && -f "$indir/$_"} readdir(INDIR);
+my @inputfiles = grep {m/(\.tsv$)|(\.txt$)/ && -f "$indir/$_"} readdir(INDIR);
 close(INDIR);
 @inputfiles = sort @inputfiles;
 print STDERR "\nVCF files found:\n";
