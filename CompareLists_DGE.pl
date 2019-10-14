@@ -55,7 +55,6 @@ foreach my $h (@inputfiles){
 }
 $n = 0;
 
-
 ##set 'max' min intersect (i.e. size of file list)
 if (!$min_intersect){
   $min_intersect = scalar @inputfiles;
@@ -65,6 +64,8 @@ my @listnames;
 foreach my $inputfile (@inputfiles){
   my $listname = $inputfile;
   $listname =~ s/.+_([^_]+)_([^_]+)\.tsv/$1\_$2/;
+  $listname =~ s/.+_([^_]+)_([^_]+)\.txt/$1\_$2/;
+  print "\nl: $listname\n";
   push @listnames,$listname;
   open (IN, "<$indir/$inputfile") or die "Cannot open $indir/$inputfile: $!\n";
   $n += 1;
