@@ -65,7 +65,6 @@ foreach my $inputfile (@inputfiles){
   my $listname = $inputfile;
   $listname =~ s/.+_([^_]+)_([^_]+)\.tsv/$1\_$2/;
   $listname =~ s/.+_([^_]+)_([^_]+)\.txt/$1\_$2/;
-  print "\nl: $listname\n";
   push @listnames,$listname;
   open (IN, "<$indir/$inputfile") or die "Cannot open $indir/$inputfile: $!\n";
   $n += 1;
