@@ -61,6 +61,8 @@ hs.pairs <- readRDS(system.file("exdata", "human_cycle_markers.rds", package="sc
 cellcycles <- cyclone(sce, pairs=hs.pairs)
 
 sce$CellCycle <- cellcycles$phases
+rm(cellcycles)
+
 
 ##get unique rownames####
 rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
@@ -98,6 +100,11 @@ sce <- logNormCounts(sce,log = FALSE)
 
 temp1 <- colSums(assay(sce, "normcounts"))
 sce <- sce[,temp1 < 2*median(temp1)]
+rm(temp1)
+
+
+##calculate final QC stats####
+sce <- calculateQCMetrics(sce)  ###no MT control here, cells are infected
 
 
 ##add chromosome location info
@@ -123,8 +130,10 @@ sce <- logNormCounts(sce,log = TRUE)
 
 ##Create first metadata file ####
 
-head(colData(sce))
-
+meta.1 <- colData(sce)[,c("Barcode","total_features_by_counts","total_counts","CellCycle")]
+out.meta <- paste(out,"_1st_metadata.tsv",sep = "")
+write.table(meta.1, file = out.meta, sep = "\t")
+rm(meta.1)
 
 ##Output host-only rds file
 
