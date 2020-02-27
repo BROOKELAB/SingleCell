@@ -3,8 +3,13 @@
 # ************
 # Author: J. Cristobal Vera
 # email: jcvera@illinois.edu
-##compare multiple lists of DGE results (e.g. Seurat_StatusPB2.tsv) and return the intersection based on a minimum representation parameter
-##(e.g. result must occure in two out of three lists)
+##compare/combine multiple lists of DGE results and return the intersection based on a minimum representation parameter (e.g. result 
+##must occur in two out of three lists).
+##Can input DGE lists from MAST, NBID, and output from this script.
+##NOTES:
+##+input files must have the .tsv or .txt extension to be parsed
+##+input files should be renamed to contain two unique identifyers for Tool and Factor seperated by underscores at end of file name, 
+##as such: AnyString_[DGE Tool Name]_[Factor Tested].[tsv/txt]
 
 #use strict;
 use Cwd;
@@ -42,7 +47,7 @@ $indir = File::Spec->rel2abs($indir);
 
 ##get all
 opendir(INDIR,$indir) or die "Can't open directory: $indir: $!\n";
-my @inputfiles = grep {m/\.tsv$/ && -f "$indir/$_"} readdir(INDIR);
+my @inputfiles = grep {m/(\.tsv$)|(\.txt$)/ && -f "$indir/$_"} readdir(INDIR);
 close(INDIR);
 @inputfiles = sort @inputfiles;
 print STDERR "\nVCF files found:\n";
@@ -52,7 +57,6 @@ foreach my $h (@inputfiles){
 }
 $n = 0;
 
-
 ##set 'max' min intersect (i.e. size of file list)
 if (!$min_intersect){
   $min_intersect = scalar @inputfiles;
@@ -61,7 +65,8 @@ if (!$min_intersect){
 my @listnames;
 foreach my $inputfile (@inputfiles){
   my $listname = $inputfile;
-  $listname =~ s/^([^_]+)_([^_]+)_.+/$1\_$2/;
+  $listname =~ s/.+_([^_]+)_([^_]+)\.tsv/$1\_$2/;
+  $listname =~ s/.+_([^_]+)_([^_]+)\.txt/$1\_$2/;
   push @listnames,$listname;
   open (IN, "<$indir/$inputfile") or die "Cannot open $indir/$inputfile: $!\n";
   $n += 1;
@@ -71,10 +76,9 @@ foreach my $inputfile (@inputfiles){
     my @line = split /\t/,$line;
     my ($id,$fdr,$log2FC);
     ###get specific DGE tool results (so far: NBID & Seurat)
-    ($id,$fdr,$log2FC) = ($line[0],$line[5],$line[2]) if ($listname =~ m/mast/i);
-    ($id,$fdr,$log2FC) = ($line[0],$line[1],$line[7]) if ($listname =~ m/nbid/i);
-    ($id,$fdr,$log2FC) = ($line[0],$line[3],$line[4]) if ($listname =~ m/combined/i);
-    #die "\nError: file $inputfile does not appear to be a DGE file: $indir/$inputfile\n\n" if ($i == 1 and ($id ne 'ID');
+    ($id,$fdr,$log2FC) = ($line[0],$line[5],$line[2]) if ($listname =~ m/mast/i); ##get MAST DGE list
+    ($id,$fdr,$log2FC) = ($line[0],$line[1],$line[7]) if ($listname =~ m/nbid/i); ##get NBID DGE list
+    ($id,$fdr,$log2FC) = ($line[0],$line[3],$line[4]) if ($listname =~ m/combined/i); ##get Combined DGE list (i.e. output from this script)
     next if ($i == 1);
     next if ($line eq '');
     $lists{$id} .= ";$fdr:$log2FC:$listname" if (exists $lists{$id} and $fdr <= $fdr_min and abs($log2FC) >= $log2FC_min);

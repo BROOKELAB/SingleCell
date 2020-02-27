@@ -79,3 +79,30 @@ Run the first script a second time using the following options:
 The script performs preliminary quality filtering, count normalization, and matrix annotation using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
 - output1: filtered, normalized, and annotated matrix file (RDS format) suitable for downstream analysis
 
+### Seurat script: Run_Seurat_tSNEs_MASS.R
+script to run Seurat and MAST functions in order to generate tSNE plots and DGE tables.
+
+#### input1: filtered, normalized, and annotated matrix file (RDS format)
+
+#### output1: high quality tSNE plots for the following:
+     - all cells: Library, Cell Cycle, Total Virus (proportion)
+     - infected cells: Library, Cell Cycle, Total Virus (proportion)
+    
+#### output2: DGE lists
+     - all cells: Library, Seurat clusters
+     -infected cells: Seurat clusters, StatusPb2, StatusPb1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS
+
+
+### Perl Script to Combine DGE tables: CompareLists_DGE.pl
+combine differential gene expression tables (i.e. DGE lists) from different tools (i.e. NBID and MAST) or from different factors (e.g. StatusPB2, StatusPB1, and StatusPA) using a minimum intersection value. This allows results to be easily compared or for more robust differentially expressed genes to be selected (i.e. those genes called by both NBID and MAST).
+
+#### inputs:
+     -d: path to a directory containing DGE tables to be combined/compared.  Files must have the .tsv or .txt extention and have the following file name format: FileBaseName_\[MAST/NBID/Combined\]_\[FactorName\].[tsv\txt]
+     -o: output file name
+     -x: minimum intersection value
+      
+ #### outputs:
+     -a tab-delimited table containing the ID column and the FDR/p-value and log2FC columns for each input file. 
+
+> e.g. perl CompareLists_DGE.pl -d DGE/input/files/ -o OutputFileName.tsv -x 2
+
