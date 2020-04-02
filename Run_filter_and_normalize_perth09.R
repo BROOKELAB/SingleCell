@@ -302,105 +302,56 @@ hist(sce$virus_pct_log10[sce$Library=="Bystander"],1000, xlim = c(-3,2),
 hist(sce$virus_pct_log10[sce$Library=="Infected"],1000, xlim = c(-3,2),
      main = "Infected virus percentage", ylim = c(0,30))
 
-#Calculate bimodal index and use + 3 SD of lower peak ----
-#for virus_pct_log10 
+
+#Find Infected threshold for virus_pct_log10  ----
 
 #first calculate density and find local maxima
+#taken from https://stackoverflow.com/questions/6836409/finding-local-maxima-and-minima
+
 des.all <- density(sce$virus_pct_log10[sce$Library=="Infected"])
+min.all <- des.all$x[which(diff(sign(diff(des.all$y)))==2)+1]
+min.all
+#0.4582323
 
-mu0.all <- des.all$x[which(diff(sign(diff(des.all$y)))==-2)+1]
-mu0.all
-# -0.166568  1.895880
-
-#get inflection points
-infl.all <- des.all$x[which(diff(sign(diff(des.all$y)))==2)+1]
-
-
-#input this into the model to see the means:
-
-mixmdl_virus = normalmixEM(sce$virus_pct_log10[sce$Library=="Infected"],
-                           mu = mu0.all[1:2], lambda = c(0.1,0.9))
-#NOTE: the above is not determinant and the exact values may
-#depend on the number of iterations
-
-x11()
-plot(mixmdl_virus,which=2)
-lines(des.all, lty=2, lwd=2)
-
-mixmdl_virus$lambda
-#[1] 0.5273708 0.4726292
-
-#This isn't working well; try running with bottom 50% of cells
-
-temp <- sce$virus_pct_log10[sce$Library=="Infected"] %>% sort() %>% head(n = round(sum(sce$Library=="Infected")/2))
-#first calculate density and find local maxima
-des.all <- density(temp)
-
-mu0.all <- des.all$x[which(diff(sign(diff(des.all$y)))==-2)+1]
-
-mu0.all
-#-0.1502371  1.6193902
-
-
-#input this into the model to see the means:
-
-mixmdl_virus = normalmixEM(temp,
-                           mu = mu0.all[1:2])
-#NOTE: the above is not determinant and the exact values may
-#depend on the number of iterations
-
-x11()
-plot(mixmdl_virus,which=2)
-lines(des.all, lty=2, lwd=2)
-
-mixmdl_virus$lambda
-#0.369741 0.630259
-mixmdl_virus$mu
-#-0.1078127  1.3887098
-mixmdl_virus$sigma
-#0.1593826 0.3391466
-
-i <- which.min(mixmdl_virus$mu)
-thresh_infected <- mixmdl_virus$mu[i] - 3*mixmdl_virus$sigma[i]
-thresh_high <- mixmdl_virus$mu[i] + 3*mixmdl_virus$sigma[i]
 
 x11(height = 10, width = 6)
-jpeg("results/test_filter_and_normalize/2020-03-30-Perth09_VirusPcts.jpeg",
+jpeg("results/test_filter_and_normalize/2020-04-02-perth09_VirusPcts.jpeg",
      height = 10, width = 6, units = "in", res = 300, quality = 100)
 layout(matrix(1:3,3,1))
 hist(sce$virus_pct_log10[sce$Library=="Mock"], 1000, xlim = c(-3,2),
-     main = "Mock virus percentage", ylim = c(0,30),
+     main = "Mock virus percentage", ylim = c(0,25),
      xlab = "log10(viral gene percentage)")
 abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Mock"], 0.95), col = "blue", lty = 2, lwd = 2)
 hist(sce$virus_pct_log10[sce$Library=="Bystander"],1000, xlim = c(-3,2),
-     main = "Bystander virus percentage", ylim = c(0,30),
+     main = "Bystander virus percentage", ylim = c(0,25),
      xlab = "log10(viral gene percentage)")
 abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Bystander"], 0.95), col = 2, lty = 2, lwd = 2)
 hist(sce$virus_pct_log10[sce$Library=="Infected"],1000, xlim = c(-3,2),
-     main = "Infected virus percentage", ylim = c(0,30),
+     main = "Infected virus percentage", ylim = c(0,25),
      xlab = "log10(viral gene percentage)")
-abline(v = c(thresh_infected,thresh_high), col = 3, lty = 2, lwd = 2)
-abline(v = infl.all[1], col = "purple", lty = 2, lwd = 2)
+abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
+
 dev.off()
 
 
-#call infected any cell that is > 3 SD----
+
+#call infected any cell above the first minimum ----
 
 sce$InfectedStatus <- "NotInfected"
-sce$InfectedStatus[sce$virus_pct_log10> thresh_high] <- "Infected"
+sce$InfectedStatus[sce$virus_pct_log10 > min.all[1]] <- "Infected"
 
 table(sce$Library, sce$InfectedStatus) 
 #           Infected NotInfected
 # Mock             0        4140
-# Bystander        8        2794
-# Infected      1943         444
+# Bystander        6        2796
+# Infected      1940         447
 
 
 table(sce$Library, sce$InfectedStatus)%>% prop.table(margin = 1)
 #              Infected  NotInfected
 # Mock      0.000000000 1.0000000000
-# Bystander 0.002855103 0.997144897
-# Infected  0.813992459 0.186007541
+# Bystander 0.002141328 0.997858672
+# Infected  0.812735651 0.187264349
 
 
 
@@ -453,20 +404,15 @@ for (i in 1:8){
 }
 
 
-#Try calc bimodal index of non-zero infected cells ----
+# Calculate minima for non-zero infected cells ----
+
+min.indiv <- rep(NA, 8)
+names(min.indiv) <- tail(rownames(sce), 8)
 
 for (i in 1:8){
   #first calculate density and find local maxima
   des.1v <-density(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i])
-  mu0.1v <- des.1v$x[which(diff(sign(diff(des.1v$y)))==-2)+1]
-  min.pt <- des.1v$x[which(diff(sign(diff(des.1v$y)))==2)+1]
-  #input this into the model to see the means; 
-  #seed lambda and sigma with values from all 8 genes
-  mixmdl.1v = normalmixEM(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i],
-                           mu = mu0.1v[1:2], lambda = c(0.1,0.9))
-  j <- which.min(mixmdl.1v$mu)
-  thresh_temp <- mixmdl.1v$mu[j] + 3*mixmdl.1v$sigma[j]
-  
+  min.indiv[i] <- des.1v$x[which(diff(sign(diff(des.1v$y)))==2)+1][1]
   x11(height = 7, width = 7)
   layout(matrix(1:2,2,1))
   temp1 <- vir_pcts_log10[sce$Library == "Bystander",i]
@@ -476,32 +422,69 @@ for (i in 1:8){
   abline(v = quantile(temp2, 0.95), col = 2, lty = 2, lwd = 2)
   hist(vir_pcts_log10[sce$Library == "Infected",i],1000, xlim = c(-3,2),
        main = paste("Infected",names(vir_pcts)[i]), ylim = c(0,30))
-  abline(v = thresh_temp, col = 3, lty = 2, lwd = 2)
-  abline(v = min.pt[1], col = 4, lty = 2, lwd = 2)
+  abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
 }
-  
+
+#This worked well for everyone 
+
+min.indiv
+#        PB2        PB1         PA         HA         NP         NA          M 
+# -1.4504983 -1.1141712 -1.5278023 -0.4161672 -0.1506843 -0.9012465  0.1165561 
+#         NS 
+# -0.2509913 
 
 
+#Put on one plot
+
+x11(width = 6, height = 10)
+layout(matrix(1:8, 4, 2, byrow = TRUE))
 for (i in 1:8){
-  #first calculate density and find local maxima
-  des.1v <-density(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i])
-  mu0.1v <- des.1v$x[which(diff(sign(diff(des.1v$y)))==2)+1]
-  thresh_temp <- mu0.1v[1]
-  
-  x11(height = 7, width = 7)
-  layout(matrix(1:2,2,1))
-  temp1 <- vir_pcts_log10[sce$Library == "Bystander",i]
-  temp2 <- vir_pcts_log10[sce$Library == "Bystander" & vir_pcts[,i] > 0 & sce$InfectedStatus == "NotInfected",i]
-  hist(temp1,1000, xlim = c(-3,2),
-       main = paste("Bystander",names(vir_pcts)[i]), ylim = c(0,30))
-  abline(v = quantile(temp2, 0.95), col = 4, lty = 2, lwd = 2)
-  hist(vir_pcts_log10[sce$Library == "Infected",i],1000, xlim = c(-3,2),
-       main = paste("Infected",names(vir_pcts)[i]), ylim = c(0,30))
-  abline(v = thresh_temp, col = 3, lty = 2, lwd = 2)
-  
+  hist(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i], 
+       1000, xlim = c(-3,2), 
+       main = names(vir_pcts_log10)[i])
+  abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
 }
   
-  
+
+
+
+jpeg("results/test_filter_and_normalize/2020-04-02-perth09_8_genes.jpeg",
+     height = 10, width = 6, units = "in", res = 300, quality = 100)
+layout(matrix(1:8, 4, 2, byrow = TRUE))
+for (i in 1:8){
+  hist(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i], 
+       1000, xlim = c(-3,2), 
+       main = names(vir_pcts_log10)[i])
+  abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
+}
+dev.off()
+
+
+sce$PB2_status <- ifelse(sce$PB2_pct_log10 > min.indiv["PB2"], "Present", "Absent")
+table(sce$Library,sce$PB2_status)
+
+sce$PB1_status <- ifelse(sce$PB1_pct_log10 > min.indiv["PB1"], "Present", "Absent")
+table(sce$Library,sce$PB1_status)
+
+sce$PA_status <- ifelse(sce$PA_pct_log10 > min.indiv["PA"], "Present", "Absent")
+table(sce$Library,sce$PA_status)
+
+sce$HA_status <- ifelse(sce$HA_pct_log10 > min.indiv["HA"], "Present", "Absent")
+table(sce$Library,sce$HA_status)
+
+sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
+table(sce$Library,sce$NP_status)
+
+sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
+table(sce$Library,sce$NP_status)
+
+sce$NA_status <- ifelse(sce$NA_pct_log10 > min.indiv["NA"], "Present", "Absent")
+table(sce$Library,sce$NA_status)
+
+sce$M_status <- ifelse(sce$M_pct_log10 > min.indiv["M"], "Present", "Absent")
+table(sce$Library,sce$M_status)
+
+
   
   
 # jpeg("results/test_filter_and_normalize/2020-03-30-Cal07_VirusPcts.jpeg",
