@@ -164,49 +164,14 @@ saveRDS(sce, file = paste0(out, "_sce_noNorm.rds"))
 sce <- readRDS(paste0(out, "_sce_noNorm.rds"))
 
 
-##Do normalization####
-##generate quick clusters for normalization
-clusters <- quickCluster(sce, use.ranks=FALSE, BSPARAM=IrlbaParam())
+##DO NOT DO normalization####
 
-##create size factors for normalizing within clusters
-sce <- computeSumFactors(sce, min.mean=0.1, cluster=clusters)
-sce$sf <- sce@int_colData@listData$size_factor
-sce <- computeSumFactors(sce, min.mean=0.1,scaling = sce$sf)
-# remove(clusters)
-# remove(sf)
+#### Calculate host counts and viral counts ----
 
-range(sce$sf)
-#0.0187505 2.7613344
+sce$host_counts <- colSums(head(assay(sce, "counts"), -8))
+sce$virus_counts <- colSums(tail(assay(sce, "counts"), 8))
+sce$virus_pct <- sce$virus_counts / sce$total_counts *100
 
-table(sce$Library, clusters)
-
-
-##create non-logged normalized values####
-sce <- logNormCounts(sce,log = FALSE)
-sce <- logNormCounts(sce,log = TRUE)
-
-sce$diffcounts <- colSums(assay(sce, "normcounts")) - colSums(assay(sce, "counts"))
-
-table(sce$diffcounts > 0)
-#FALSE  TRUE 
-# 4993  4336
-
-table(sce$Library, sce$diffcounts > 0)
-#           FALSE TRUE
-# Mock       2773 1367
-# Bystander  1910  892
-# Infected    310 2077
-
-tail(sce$diffcounts, 8)
-
-
-#### Calculate total normcount, host normcounts and viral normcounts----
-
-sce$total_normcounts <- colSums(assay(sce, "normcounts"))
-sce$host_normcounts <- colSums(head(assay(sce, "normcounts"), -8))
-sce$virus_normcounts <- colSums(tail(assay(sce, "normcounts"), 8))
-
-sce$virus_pct <- sce$virus_normcounts / sce$total_normcounts *100
 
 table(sce$Library, sce$virus_pct >0) %>% prop.table(margin = 1)
 #                  FALSE         TRUE
@@ -225,13 +190,6 @@ sce$virus_pct[sce$Library == "Infected" ] %>% summary()
 #0.3501 13.6756 62.2449 50.7004 82.7895 95.9093
 
 
-#Also check raw counts for sanity
-
-sce$host_counts <- colSums(head(assay(sce, "counts"), -8))
-sce$virus_counts <- colSums(tail(assay(sce, "counts"), 8))
-sce$virus_pct_raw <- sce$virus_counts / sce$total_counts *100
-
-
 #look at distributions on log10 scale----
 #get half the minimum non-zero value
 
@@ -244,44 +202,6 @@ range(sce$virus_pct_log10)
 #-2.612137  1.981872
 
 
-# temp <- as.data.frame(colData(sce))
-# 
-# 
-# 
-# x11()
-# ggplot(temp, aes(x=host_counts)) + 
-#   geom_histogram(binwidth=1000) + 
-#   facet_grid(Library ~ .)
-# ggsave("results/test_filter_and_normalize/bioc_totalHostCounts.jpeg")
-# #more infected cells have lower total host counts
-# 
-# #Do the libraries drastically differ in the number of non-zero genes?
-# 
-# x11()
-# ggplot(temp, aes(x=total_features_by_counts)) + 
-#   geom_histogram() + 
-#   facet_grid(Library ~ .) 
-# ggsave("results/test_filter_and_normalize/bioc_totalGenesDet.jpeg")
-# #yes
-# 
-# x11()
-# ggplot(temp, aes(x=host_normcounts)) + 
-#   geom_histogram() + 
-#   facet_grid(Library ~ .)
-# ggsave("results/test_filter_and_normalize/bioc_totalHostNormCounts_scaling.jpeg")
-# #why are regular gene counts shifted so far up?
-# 
-# x11()
-# ggplot(temp, aes(x=virus_pct)) + 
-#   geom_histogram(binwidth=10) + 
-#   facet_grid(Library ~ .)
-# 
-# 
-# x11()
-# ggplot(temp, aes(x=virus_pct_log10)) + 
-#   geom_histogram() + 
-#   facet_grid(Library ~ .)
-# 
 
 
 x11(height = 10, width = 6)
@@ -359,6 +279,9 @@ table(sce$Library, sce$InfectedStatus)%>% prop.table(margin = 1)
 
 n.colData <- ncol(colData(sce)) 
 virus_gene_counts <- tail(assay(sce, "counts"), 8) %>% t() %>% as.matrix()
+colData(sce) <- cbind(colData(sce), virus_gene_counts)
+names(colData(sce))[(n.colData+1):(n.colData+8)] <- paste0(names(colData(sce))[(n.colData+1):(n.colData+8)],"_counts")
+n.colData <- ncol(colData(sce)) 
 colData(sce) <- cbind(colData(sce), virus_gene_counts/sce$total_counts * 100)
 names(colData(sce))[(n.colData+1):(n.colData+8)] <- paste0(names(colData(sce))[(n.colData+1):(n.colData+8)],"_pct")
 
@@ -413,7 +336,8 @@ for (i in 1:8){
   #first calculate density and find local maxima
   des.1v <-density(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i])
   min.indiv[i] <- des.1v$x[which(diff(sign(diff(des.1v$y)))==2)+1][1]
-  x11(height = 7, width = 7)
+  jpeg(paste0("results/test_filter_and_normalize/2020-04-02-perth09_",names(min.indiv)[i],"_genes.jpeg"),
+       height = 7, width = 7, units = "in", res = 300, quality = 100)
   layout(matrix(1:2,2,1))
   temp1 <- vir_pcts_log10[sce$Library == "Bystander",i]
   temp2 <- vir_pcts_log10[sce$Library == "Bystander" & vir_pcts[,i] > 0 & sce$InfectedStatus == "NotInfected",i]
@@ -423,6 +347,7 @@ for (i in 1:8){
   hist(vir_pcts_log10[sce$Library == "Infected",i],1000, xlim = c(-3,2),
        main = paste("Infected",names(vir_pcts)[i]), ylim = c(0,30))
   abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
+  dev.off()
 }
 
 #This worked well for everyone 
@@ -460,6 +385,8 @@ for (i in 1:8){
 dev.off()
 
 
+#call present/absent for each gene ----
+
 sce$PB2_status <- ifelse(sce$PB2_pct_log10 > min.indiv["PB2"], "Present", "Absent")
 table(sce$Library,sce$PB2_status)
 
@@ -475,608 +402,93 @@ table(sce$Library,sce$HA_status)
 sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
 table(sce$Library,sce$NP_status)
 
-sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
-table(sce$Library,sce$NP_status)
-
 sce$NA_status <- ifelse(sce$NA_pct_log10 > min.indiv["NA"], "Present", "Absent")
 table(sce$Library,sce$NA_status)
 
 sce$M_status <- ifelse(sce$M_pct_log10 > min.indiv["M"], "Present", "Absent")
 table(sce$Library,sce$M_status)
 
-
-  
-  
-# jpeg("results/test_filter_and_normalize/2020-03-30-Cal07_VirusPcts.jpeg",
-#      height = 10, width = 6, units = "in", res = 300, quality = 100)
-  layout(matrix(1:3,3,1))
-  hist(sce$virus_pct_log10[sce$Library=="Mock"], 1000, xlim = c(-3,2),
-     main = "Mock virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
-abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Mock"], 0.95), col = "blue", lty = 2, lwd = 2)
-hist(sce$virus_pct_log10[sce$Library=="Bystander"],1000, xlim = c(-3,2),
-     main = "Bystander virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
-abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Bystander"], 0.95), col = 2, lty = 2, lwd = 2)
-hist(sce$virus_pct_log10[sce$Library=="Infected"],1000, xlim = c(-3,2),
-     main = "Infected virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
-abline(v = c(thresh_infected,thresh_high), col = 3, lty = 2, lwd = 2)
-dev.off()
-
-
-
-
-
-
-
-
-
-#put on same y-axis
-
-x11(width = 6, height = 10)
-jpeg(paste0(out, "_viralgene_histograms.jpeg"), width = 6, height = 9, units = "in", quality=100, res = 300)
-layout(matrix(1:8, 4, 2, byrow = TRUE))
-for (i in grep("log10$", names(colData(sce)))[-1] ){
-  hist(colData(sce)[sce$Library == "Infected",i], 1000, xlim = c(-3,2), 
-       main = names(colData(sce))[i], ylim = c(0,15))
-}
-dev.off()
-
-
-for (i in grep("log10$", names(colData(sce)))[-1] ){
-  x11(height = 10, width = 6)
-  layout(matrix(1:3,3,1))
-  temp1 <- colData(sce)[sce$Library == "Mock",i]
-  hist(temp1, 1000, xlim = c(-3,2),
-       main = "Mock virus percentage", ylim = c(0,10))
-  abline(v = quantile(temp1[temp1>-2.75], 0.95), col = "blue", lty = 2, lwd = 2)
-  temp2 <- colData(sce)[sce$Library == "Bystander",i]
-  hist(temp2,1000, xlim = c(-3,2),
-       main = "Bystander virus percentage", ylim = c(0,10))
-  abline(v = quantile(temp2[temp2>-2.75], 0.95), col = 3, lty = 2, lwd = 2)
-  hist(colData(sce)[sce$Library == "Infected",i],1000, xlim = c(-3,2),
-       main = "Infected virus percentage", ylim = c(0,30))
-  abline(v = quantile(temp2[temp2>-2.75], 0.95), col = 3, lty = 2, lwd = 2)
-}
-
-
-
-#Do bimodal indexes for all 8
-
-mixmdl_PB2 = normalmixEM(sce$PB2_pct_log10[sce$Library == "Infected"])
-mixmdl_PB1 = normalmixEM(sce$PB1_pct_log10[sce$Library == "Infected"])
-mixmdl_PA = normalmixEM(sce$PA_pct_log10[sce$Library == "Infected"])
-mixmdl_HA = normalmixEM(sce$HA_pct_log10[sce$Library == "Infected"])
-mixmdl_NP = normalmixEM(sce$NP_pct_log10[sce$Library == "Infected"])
-mixmdl_NA = normalmixEM(sce$NA_pct_log10[sce$Library == "Infected"])
-mixmdl_M = normalmixEM(sce$M_pct_log10[sce$Library == "Infected"])
-mixmdl_NS = normalmixEM(sce$NS_pct_log10[sce$Library == "Infected"])
-
-
-
-x11(6,9)
-jpeg(paste0(out, "_bimodality_curves.jpeg"), width = 6, height = 9, units = "in", quality=100, res = 300)
-layout(matrix(1:8,4,2, byrow = TRUE))
-plot(mixmdl_PB2,which=2, sub = "PB2 bimodality")
-lines(density(sce$PB2_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_PB1,which=2, sub = "PB1 bimodality")
-lines(density(sce$PB1_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_PA,which=2, sub = "PA bimodality")
-lines(density(sce$PA_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_HA,which=2, sub = "HA bimodality")
-lines(density(sce$HA_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_NP,which=2, sub = "NP bimodality")
-lines(density(sce$NP_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_NA,which=2, sub = "NA bimodality")
-lines(density(sce$NA_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_M,which=2, sub = "M bimodality")
-lines(density(sce$M_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-plot(mixmdl_NS,which=2, sub = "NS bimodality")
-lines(density(sce$NS_pct_log10[sce$Library == "Infected"]), lty=2, lwd=2)
-dev.off()
-
-
-
-
-
-
-#subset to DoubleNegative (Bystander)----
-
-sce.by <- sce[, sce$Library %in% "DoubleNegative"]
-sce.by$NS_proportion <- sce.by$NS / sce.by$total_count
-
-
-#For PB2, PB1, PA and NA, get 95% non-zero percentages of Bystander. But check for
-#outliers that might be infected
-
-#Do PB2 ----
-
-by_PB2 <- sce.by$PB2 / sce.by$total_count
-sum(by_PB2 > 0)
-#18
-which.max(by_PB2)
-#612
-x11()
-hist(by_PB2, 1000, ylim = c(0, 10))
-
-by_PB2_non0 <- by_PB2[by_PB2>0]
-by_PB2_non0 <- sort(by_PB2_non0)
-
-#Compare with infected PB2 to see if any bystander obviously infected
-
-#log10 scale
-halfmin_PB2 <- min(infectInfo.sm$PB2_proportion[infectInfo.sm$PB2_proportion>0])/2
-halfmin_PB2
-
-x11()
-jpeg(paste0(out, "_PB2_thresholds.jpeg"), width = 7, height = 7, units = "in", res = 300, quality = 100)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo.sm$PB2_proportion + halfmin_PB2), 1000, 
-             main = "Infected cells, PB2 proportion")
-abline(v = log10(quantile(by_PB2_non0, 0.95)+halfmin_PB2), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PB2_non0, -1), 0.95)+halfmin_PB2), col = 3, lty = 2, lwd = 2)
-hist(log10(by_PB2_non0 + halfmin_PB2), temp$breaks,
-     main = paste(length(by_PB2_non0),"non-zero bystander cells"))
-#one obviously infected
-abline(v = log10(quantile(by_PB2_non0, 0.95)+halfmin_PB2), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PB2_non0, -1), 0.95)+halfmin_PB2), col = 3, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_PB2_non0, 0.95)
-#        95% 
-#0.001466067
-
-quantile(head(by_PB2_non0, -1), 0.95)
-#0.0002989828
-
-min(infectInfo.sm$PB2_proportion[infectInfo.sm$PB2_Status %in% "Present"])
-#0.000299
-
-#new 95% without outlier is very close
-
-
-
-#DO for PB1 ----
-
-by_PB1 <- sce.by$PB1 / sce.by$total_count
-sum(by_PB1 > 0)
-#33
-which.max(by_PB1)
-#612
-x11()
-hist(by_PB1, 1000, ylim = c(0, 10))
-#one outlier
-
-by_PB1_non0 <- by_PB1[by_PB1>0]
-by_PB1_non0 <- sort(by_PB1_non0)
-
-#Compare with infected PB1 to see if any bystander obviously infected
-
-#log10 scale
-halfmin_PB1 <- min(infectInfo.sm$PB1_proportion[infectInfo.sm$PB1_proportion>0])/2
-halfmin_PB1
-
-x11()
-jpeg(paste0(out, "_PB1_thresholds.jpeg"), width = 7, height = 7, units = "in", res = 300, quality = 100)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo.sm$PB1_proportion + halfmin_PB1), 1000, 
-             main = "Infected cells, PB1 proportion")
-abline(v = log10(quantile(by_PB1_non0, 0.95)+halfmin_PB1), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PB1_non0, -1), 0.95)+halfmin_PB1), col = 3, lty = 2, lwd = 2)
-hist(log10(by_PB1_non0 + halfmin_PB1), temp$breaks,
-     main = paste(length(by_PB1_non0),"non-zero bystander cells"))
-#one obviously infected
-abline(v = log10(quantile(by_PB1_non0, 0.95)+halfmin_PB1), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PB1_non0, -1), 0.95)+halfmin_PB1), col = 3, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_PB1_non0, 0.95)
-#        95% 
-#0.0002869663
-
-quantile(head(by_PB1_non0, -1), 0.95)
-#0.0002055767
-
-min(infectInfo.sm$PB1_proportion[infectInfo.sm$PB1_Status %in% "Present"])
-#0.000206
-
-#new 95% without outlier is very close
-
-
-#DO for PA ----
-
-by_PA <- sce.by$PA / sce.by$total_count
-sum(by_PA > 0)
-#12
-which.max(by_PA)
-#612
-x11()
-hist(by_PA, 1000, ylim = c(0, 10))
-#one outlier
-
-by_PA_non0 <- by_PA[by_PA>0]
-by_PA_non0 <- sort(by_PA_non0)
-
-#Compare with infected PA to see if any bystander obviously infected
-
-#log10 scale
-halfmin_PA <- min(infectInfo.sm$PA_proportion[infectInfo.sm$PA_proportion>0])/2
-halfmin_PA
-
-x11()
-jpeg(paste0(out, "_PA_thresholds.jpeg"), width = 7, height = 7, units = "in", res = 300, quality = 100)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo.sm$PA_proportion + halfmin_PA), 1000, 
-             main = "Infected cells, PA proportion")
-abline(v = log10(quantile(by_PA_non0, 0.95)+halfmin_PA), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PA_non0, -1), 0.95)+halfmin_PA), col = 3, lty = 2, lwd = 2)
-hist(log10(by_PA_non0 + halfmin_PA), temp$breaks,
-     main = paste(length(by_PA_non0),"non-zero bystander cells"))
-#one obviously infected
-abline(v = log10(quantile(by_PA_non0, 0.95)+halfmin_PA), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_PA_non0, -1), 0.95)+halfmin_PA), col = 3, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_PA_non0, 0.95)
-#        95% 
-#0.002308459
-
-quantile(head(by_PA_non0, -1), 0.95)
-#0.0001367739
-
-min(infectInfo.sm$PA_proportion[infectInfo.sm$PA_Status %in% "Present"])
-#0.000137
-
-#new 95% without outlier is very close
-
-
-#DO for NA ----
-
-by_NA <- sce.by$NA. / sce.by$total_count
-sum(by_NA > 0)
-#16
-which.max(by_NA)
-#563
-x11()
-hist(by_NA, 1000, ylim = c(0, 10))
-#one outlier
-
-by_NA_non0 <- by_NA[by_NA>0]
-by_NA_non0 <- sort(by_NA_non0)
-
-#Compare with infected NA to see if any bystander obviously infected
-
-#log10 scale
-halfmin_NA <- min(infectInfo.sm$NA_proportion[infectInfo.sm$NA_proportion>0])/2
-halfmin_NA
-
-x11()
-jpeg(paste0(out, "_NA_thresholds.jpeg"), width = 7, height = 7, units = "in", res = 300, quality = 100)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo.sm$NA_proportion + halfmin_NA), 1000, 
-             main = "Infected cells, NA proportion")
-abline(v = log10(quantile(by_NA_non0, 0.95)+halfmin_NA), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NA_non0, -1), 0.95)+halfmin_NA), col = 3, lty = 2, lwd = 2)
-hist(log10(by_NA_non0 + halfmin_NA), temp$breaks,
-     main = paste(length(by_NA_non0),"non-zero bystander cells"))
-#one obviously infected
-abline(v = log10(quantile(by_NA_non0, 0.95)+halfmin_NA), col = 2, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NA_non0, -1), 0.95)+halfmin_NA), col = 3, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_NA_non0, 0.95)
-#        95% 
-#0.001505873
-
-quantile(head(by_NA_non0, -1), 0.95)
-#0.0004488048
-
-min(infectInfo.sm$NA_proportion[infectInfo.sm$NA_Status %in% "Present"])
-#0.00045
-
-#new 95% without outlier is very close
-
-
-# For HA, NP, M and NS do something different----
-#Calculate bimodal indexes and use + 3 SD of lower peak
-
-library(mixtools)
-
-
-#Start with HA----
-
-by_HA <- sce.by$HA / sce.by$total_count
-sum(by_HA > 0)
-#45
-which.max(by_HA)
-#612
-x11()
-hist(by_HA, 1000, ylim = c(0, 10))
-#one outlier
-
-by_HA_non0 <- by_HA[by_HA>0]
-by_HA_non0 <- sort(by_HA_non0)
-
-
-#log10 scale
-halfmin_HA <- min(infectInfo.sm$HA_proportion[infectInfo.sm$HA_proportion>0])/2
-
-
-#need genes in rows and samples in columns
-
-mixmdl_HA = normalmixEM(log10(infectInfo$HA_proportion+halfmin_HA))
-x11()
-plot(mixmdl_HA,which=2)
-lines(density(log10(infectInfo$HA_proportion+halfmin_HA)), lty=2, lwd=2)
-
-mixmdl_HA$mu
-#-3.098479 -1.757742
-mixmdl_HA$sigma
-#0.1379327 0.4125467
-
-
-#x11()
-jpeg(paste0(out, "_HA_thresholds.jpeg"), width = 7, height = 7, units = "in", quality=100, res = 300)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo$HA_proportion+halfmin_HA), 1000,  
-             main = "Infected cells, HA proportion")
-abline(v = mixmdl_HA$mu[1] + 3*mixmdl_HA$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_HA_non0, -1), 0.95)+halfmin_HA), col = 2, lty = 2, lwd = 2)
-hist(log10(by_HA_non0 + halfmin_HA), temp$breaks,
-     main = paste(length(by_HA_non0),"non-zero bystander cells"))
-abline(v = mixmdl_HA$mu[1] + 3*mixmdl_HA$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_HA_non0, -1), 0.95)+halfmin_HA), col = 2, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_HA_non0, 0.95)
-#        95% 
-#0.0008589049
-
-quantile(head(by_HA_non0, -1), 0.95)
-#0.0006606463
-
-min(infectInfo.sm$HA_proportion[infectInfo.sm$HA_Status %in% "Present"])
-#0.000661
-
-
-#Do NP----
-
-by_NP <- sce.by$NP / sce.by$total_count
-sum(by_NP > 0)
-#66
-which.max(by_NP)
-#563
-x11()
-hist(by_NP, 1000, ylim = c(0, 10))
-#maybe two outlier?
-which.max(by_NP[-563])
-#611  - same as 612-1!
-
-by_NP_non0 <- by_NP[by_NP>0]
-by_NP_non0 <- sort(by_NP_non0)
-
-
-#log10 scale
-halfmin_NP <- min(infectInfo.sm$NP_proportion[infectInfo.sm$NP_proportion>0])/2
-
-
-#need genes in rows and samples in columns
-
-mixmdl_NP = normalmixEM(log10(infectInfo$NP_proportion+halfmin_NP))
-x11()
-plot(mixmdl_NP,which=2)
-lines(density(log10(infectInfo$NP_proportion+halfmin_NP)), lty=2, lwd=2)
-
-mixmdl_NP$mu
-#-3.041578 -1.849426
-mixmdl_NP$sigma
-#0.1244391 0.4075653
-
-
-#x11()
-jpeg(paste0(out, "_NP_thresholds.jpeg"), width = 7, height = 7, units = "in", quality=100, res = 300)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo$NP_proportion+halfmin_NP), 1000,  
-             main = "Infected cells, NP proportion", xlim = c(-4, -0.4))
-abline(v = mixmdl_NP$mu[1] + 3*mixmdl_NP$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NP_non0, -1), 0.95)+halfmin_NP), col = 2, lty = 2, lwd = 2)
-hist(log10(by_NP_non0 + halfmin_NP), 1000, xlim = c(-4, -0.4),
-     main = paste(length(by_NP_non0),"non-zero bystander cells"))
-abline(v = mixmdl_NP$mu[1] + 3*mixmdl_NP$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NP_non0, -1), 0.95)+halfmin_NP), col = 2, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_NP_non0, 0.95)
-#        95% 
-#0.0008485093
-
-quantile(head(by_NP_non0, -1), 0.95)
-#0.0006701869
-
-min(infectInfo.sm$NP_proportion[infectInfo.sm$NP_Status %in% "Present"])
-#0.000671
-
-
-
-#Do NS----
-
-by_NS <- sce.by$NS / sce.by$total_count
-sum(by_NS > 0)
-#80
-which.max(by_NS)
-#103
-x11()
-hist(by_NS, 1000, ylim = c(0, 10))
-#maybe two outlier?
-which.max(by_NS[-103])
-#562
-
-by_NS_non0 <- by_NS[by_NS>0]
-by_NS_non0 <- sort(by_NS_non0)
-
-
-#log10 scale
-halfmin_NS <- min(infectInfo.sm$NS_proportion[infectInfo.sm$NS_proportion>0])/2
-
-
-#need genes in rows and samples in columns
-
-mixmdl_NS = normalmixEM(log10(infectInfo$NS_proportion+halfmin_NS))
-x11()
-plot(mixmdl_NS,which=2)
-lines(density(log10(infectInfo$NS_proportion+halfmin_NS)), lty=2, lwd=2)
-
-mixmdl_NS$mu
-#-3.079796 -1.524843
-mixmdl_NS$sigma
-#0.1352574 0.3954511
-
-
-#x11()
-jpeg(paste0(out, "_NS_thresholds.jpeg"), width = 7, height = 7, units = "in", quality=100, res = 300)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo$NS_proportion+halfmin_NS), 1000,  
-             main = "Infected cells, NS proportion", xlim = c(-4, -0.4))
-abline(v = mixmdl_NS$mu[1] + 3*mixmdl_NS$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NS_non0, -1), 0.95)+halfmin_NS), col = 2, lty = 2, lwd = 2)
-hist(log10(by_NS_non0 + halfmin_NS), 1000, xlim = c(-4, -0.4),
-     main = paste(length(by_NS_non0),"non-zero bystander cells"))
-abline(v = mixmdl_NS$mu[1] + 3*mixmdl_NS$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_NS_non0, -1), 0.95)+halfmin_NS), col = 2, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_NS_non0, 0.95)
-#        95% 
-#0.001725732
-
-quantile(head(by_NS_non0, -1), 0.95)
-#0.0009229701
-
-min(infectInfo.sm$NS_proportion[infectInfo.sm$NS_Status %in% "Present"])
-#0.000923
-
-
-
-#Do M----
-
-by_M <- sce.by$M / sce.by$total_count
-sum(by_M > 0)
-#67
-which.max(by_M)
-#612
-x11()
-hist(by_M, 1000, ylim = c(0, 10))
-#one outlier
-
-by_M_non0 <- by_M[by_M>0]
-by_M_non0 <- sort(by_M_non0)
-
-
-#log10 scale
-halfmin_M <- min(infectInfo.sm$M_proportion[infectInfo.sm$M_proportion>0])/2
-
-
-#need genes in rows and samples in columns
-
-mixmdl_M = normalmixEM(log10(infectInfo$M_proportion+halfmin_M))
-x11()
-plot(mixmdl_M,which=2)
-lines(density(log10(infectInfo$M_proportion+halfmin_M)), lty=2, lwd=2)
-
-mixmdl_M$mu
-#-2.622773 -1.620764
-mixmdl_M$sigma
-#0.07911423 0.41559711
-
-
-#x11()
-jpeg(paste0(out, "_M_thresholds.jpeg"), width = 7, height = 7, units = "in", quality=100, res = 300)
-layout(matrix(1:2,2,1))
-temp <- hist(log10(infectInfo$M_proportion+halfmin_M), 1000,  
-             main = "Infected cells, M proportion", xlim = c(-3.5, -0.2))
-abline(v = mixmdl_M$mu[1] + 3*mixmdl_M$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_M_non0, -1), 0.95)+halfmin_M), col = 2, lty = 2, lwd = 2)
-hist(log10(by_M_non0 + halfmin_M), 1000, xlim = c(-3.5, -0.2),
-     main = paste(length(by_M_non0),"non-zero bystander cells"))
-abline(v = mixmdl_M$mu[1] + 3*mixmdl_M$sigma[1], col = 3, lty = 2, lwd = 2)
-abline(v = log10(quantile(head(by_M_non0, -1), 0.95)+halfmin_M), col = 2, lty = 2, lwd = 2)
-dev.off()
-
-#compare to previous smalled proportion that was present
-
-quantile(by_M_non0, 0.95)
-#        95% 
-#0.0007927077
-
-quantile(head(by_M_non0, -1), 0.95)
-#0.0005660847
-
-min(infectInfo.sm$M_proportion[infectInfo.sm$M_Status %in% "Present"])
-#0.000845
-log10(0.000845++ halfmin_M)
-#-2.897052
-
-
-#Do bimodal indexes for all 8
-
-mixmdl_PB2 = normalmixEM(log10(infectInfo$PB2_proportion+halfmin_PB2))
-mixmdl_PB1 = normalmixEM(log10(infectInfo$PB1_proportion+halfmin_PB1))
-mixmdl_PA = normalmixEM(log10(infectInfo$PA_proportion+halfmin_PA))
-mixmdl_NA = normalmixEM(log10(infectInfo$NA_proportion+halfmin_NA))
-
-
-
-
-x11(6,9)
-jpeg(paste0(out, "_bimodality_curves.jpeg"), width = 6, height = 9, units = "in", quality=100, res = 300)
-layout(matrix(1:8,4,2, byrow = TRUE))
-plot(mixmdl_PB2,which=2, sub = "PB2 bimodality")
-lines(density(log10(infectInfo$PB2_proportion+halfmin_PB2)), lty=2, lwd=2)
-plot(mixmdl_PB1,which=2, sub = "PB1 bimodality")
-lines(density(log10(infectInfo$PB1_proportion+halfmin_PB1)), lty=2, lwd=2)
-plot(mixmdl_PA,which=2, sub = "PA bimodality")
-lines(density(log10(infectInfo$PA_proportion+halfmin_PA)), lty=2, lwd=2)
-plot(mixmdl_HA,which=2, sub = "HA bimodality")
-lines(density(log10(infectInfo$HA_proportion+halfmin_HA)), lty=2, lwd=2)
-plot(mixmdl_NP,which=2, sub = "NP bimodality")
-lines(density(log10(infectInfo$NP_proportion+halfmin_NP)), lty=2, lwd=2)
-plot(mixmdl_NA,which=2, sub = "NA bimodality")
-lines(density(log10(infectInfo$NA_proportion+halfmin_NA)), lty=2, lwd=2)
-plot(mixmdl_M,which=2, sub = "M bimodality")
-lines(density(log10(infectInfo$M_proportion+halfmin_M)), lty=2, lwd=2)
-plot(mixmdl_NS,which=2, sub = "NS bimodality")
-lines(density(log10(infectInfo$NS_proportion+halfmin_NS)), lty=2, lwd=2)
-dev.off()
-
-
+sce$NS_status <- ifelse(sce$NS_pct_log10 > min.indiv["NS"], "Present", "Absent")
+table(sce$Library,sce$NS_status)
+
+
+#calculate the number viral genes present ----
+
+temp <-  as.matrix(colData(sce)[,grep("_status$", names(colData(sce)))])
+sce$NumPres <- rowSums(temp == "Present")
+table(sce$Library, sce$NumPres)
+#              0    1    2    3    4    5    6    7    8
+# Mock      4140    0    0    0    0    0    0    0    0
+# Bystander 2787    4    3    2    0    4    1    1    0
+# Infected   417   20    9   20   40   90  245  529 1017
 
 
 ##Save rds file----
 
-saveRDS(sce, file = paste0(out, "_sce_finalHostVirus.rds"))
+saveRDS(sce, file = "results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
 #sce <- readRDS(paste0(out, "_sce_finalHostVirus.rds"))
 
-##Create first metadata file ####
-meta.1 <- colData(sce)[,c("Barcode","Library","total_features_by_counts","total_counts","CellCycle")]
-out.meta <- paste(out,"_1st_metadata.tsv",sep = "")
-write.table(meta.1, file = out.meta, sep = "\t")
+##Create metadata file ####
+meta.1 <- colData(sce)
+out.meta <- "results/test_filter_and_normalize/2020-04-02-perth09_metadata.tsv"
+write.table(meta.1, file = out.meta, sep = "\t", row.names = FALSE)
 
 
-
-
-q()
+sessionInfo()
+# sessionInfo()
+# R version 3.6.2 (2019-12-12)
+# Platform: x86_64-w64-mingw32/x64 (64-bit)
+# Running under: Windows 10 x64 (build 18362)
+# 
+# Matrix products: default
+# 
+# locale:
+#   [1] LC_COLLATE=English_United States.1252  LC_CTYPE=English_United States.1252   
+# [3] LC_MONETARY=English_United States.1252 LC_NUMERIC=C                          
+# [5] LC_TIME=English_United States.1252    
+# 
+# attached base packages:
+#   [1] parallel  stats4    stats     graphics  grDevices utils     datasets  methods  
+# [9] base     
+# 
+# other attached packages:
+#   [1] mixtools_1.2.0              magrittr_1.5                BiocSingular_1.2.1         
+# [4] scran_1.14.5                EnsDb.Hsapiens.v86_2.99.0   ensembldb_2.10.2           
+# [7] AnnotationFilter_1.10.0     GenomicFeatures_1.38.0      AnnotationDbi_1.48.0       
+# [10] scater_1.14.6               ggplot2_3.2.1               DropletUtils_1.6.1         
+# [13] SingleCellExperiment_1.8.0  SummarizedExperiment_1.16.1 DelayedArray_0.12.2        
+# [16] BiocParallel_1.20.1         matrixStats_0.55.0          Biobase_2.46.0             
+# [19] GenomicRanges_1.38.0        GenomeInfoDb_1.22.0         IRanges_2.20.2             
+# [22] S4Vectors_0.24.2            BiocGenerics_0.32.0         simpleSingleCell_1.10.1    
+# 
+# loaded via a namespace (and not attached):
+#   [1] segmented_1.1-0          ProtGenerics_1.18.0      bitops_1.0-6            
+# [4] bit64_0.9-7              progress_1.2.2           httr_1.4.1              
+# [7] tools_3.6.2              backports_1.1.5          R6_2.4.1                
+# [10] irlba_2.3.3              HDF5Array_1.14.1         vipor_0.4.5             
+# [13] DBI_1.1.0                lazyeval_0.2.2           colorspace_1.4-1        
+# [16] withr_2.1.2              tidyselect_0.2.5         gridExtra_2.3           
+# [19] prettyunits_1.1.0        bit_1.1-15.1             curl_4.3                
+# [22] compiler_3.6.2           BiocNeighbors_1.4.1      rtracklayer_1.46.0      
+# [25] scales_1.1.0             askpass_1.1              rappdirs_0.3.1          
+# [28] stringr_1.4.0            digest_0.6.23            Rsamtools_2.2.1         
+# [31] R.utils_2.9.2            XVector_0.26.0           pkgconfig_2.0.3         
+# [34] dbplyr_1.4.2             limma_3.42.0             rlang_0.4.2             
+# [37] rstudioapi_0.10          RSQLite_2.2.0            DelayedMatrixStats_1.8.0
+# [40] dplyr_0.8.3              R.oo_1.23.0              RCurl_1.95-4.12         
+# [43] GenomeInfoDbData_1.2.2   Matrix_1.2-18            Rcpp_1.0.3              
+# [46] ggbeeswarm_0.6.0         munsell_0.5.0            Rhdf5lib_1.8.0          
+# [49] viridis_0.5.1            lifecycle_0.1.0          R.methodsS3_1.7.1       
+# [52] stringi_1.4.5            edgeR_3.28.0             MASS_7.3-51.4           
+# [55] zlibbioc_1.32.0          rhdf5_2.30.1             BiocFileCache_1.10.2    
+# [58] grid_3.6.2               blob_1.2.0               dqrng_0.2.1             
+# [61] crayon_1.3.4             lattice_0.20-38          splines_3.6.2           
+# [64] Biostrings_2.54.0        hms_0.5.3                locfit_1.5-9.1          
+# [67] zeallot_0.1.0            pillar_1.4.3             igraph_1.2.4.2          
+# [70] biomaRt_2.42.0           XML_3.98-1.20            glue_1.3.1              
+# [73] vctrs_0.2.1              gtable_0.3.0             openssl_1.4.1           
+# [76] purrr_0.3.3              kernlab_0.9-29           assertthat_0.2.1        
+# [79] rsvd_1.0.2               survival_3.1-8           viridisLite_0.3.0       
+# [82] tibble_2.1.3             GenomicAlignments_1.22.1 beeswarm_0.2.3          
+# [85] memoise_1.1.0            statmod_1.4.33
+ 
