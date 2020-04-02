@@ -140,36 +140,18 @@ sce <- readRDS(paste0(out, "_sce_noNorm.rds"))
 
 
 ##DO NOT DO normalization####
-##generate quick clusters for normalization
-# clusters <- quickCluster(sce, use.ranks=FALSE, BSPARAM=IrlbaParam())
-# 
-# ##create size factors for normalizing within clusters
-# sce <- computeSumFactors(sce, min.mean=0.1, cluster=clusters)
-# sce$sf <- sce@int_colData@listData$size_factor
-# sce <- computeSumFactors(sce, min.mean=0.1,scaling = sf)
-#remove(clusters)
-#remove(sf)
 
-##create logged & non-logged normalized values####
-# sce <- logNormCounts(sce,log = FALSE)
-# sce <- logNormCounts(sce,log = TRUE)
+#### Calculate host counts and viral counts ----
 
+sce$host_counts <- colSums(head(assay(sce, "counts"), -8))
+sce$virus_counts <- colSums(tail(assay(sce, "counts"), 8))
+sce$virus_pct <- sce$virus_counts / sce$total_counts *100
 
-
-
-#### Calculate total normcount, host normcounts and viral normcounts----
-
-sce$total_normcount <- colSums(assay(sce, "normcounts"))
-sce$host_normcount <- colSums(head(assay(sce, "normcounts"), -8))
-sce$virus_normcount <- colSums(tail(assay(sce, "normcounts"), 8))
-
-
-sce$virus_pct <- sce$virus_normcount / sce$total_normcount *100
 
 table(sce$Library, sce$virus_pct >0) %>% prop.table(margin = 1)
 #                  FALSE       TRUE
-# Mock      0.93188248 0.06811752
-# Bystander 0.93516209 0.06483791
+# Mock      0.93579045 0.06420955
+# Bystander 0.94564895 0.05435105
 # Infected  0.00000000 1.00000000
 
 
@@ -184,20 +166,6 @@ sce$virus_pct[sce$Library == "Infected" ] %>% summary()
 #0.2424  5.0595 10.0196 13.8803 16.5209 92.1365
 
 
-#Also check raw counts for sanity
-
-sce$host_count <- colSums(head(assay(sce, "counts"), -8))
-sce$virus_count <- colSums(tail(assay(sce, "counts"), 8))
-
-sce$virus_count[sce$Library == "Mock" & sce$virus_count > 0] %>% summary() 
-#    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#   1.000   1.000   1.000   1.364   1.000  40.000
-sce$virus_count[sce$Library == "Bystander" & sce$virus_count > 0] %>% summary() 
-#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#   1.00    1.00    1.00   15.83    2.00 2214.00
-sce$virus_count[sce$Library == "Infected" & sce$virus_count > 0] %>% summary() 
-#   Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
-#      4     654    1400    2560    2450   61351
 
 
 #look at distributions on log10 scale----
@@ -260,14 +228,14 @@ sce$InfectedStatus[sce$virus_pct_log10 > min.all[1]] <- "Infected"
 table(sce$Library, sce$InfectedStatus) 
 #           Infected NotInfected
 # Mock             0        4314
-# Bystander        3        3364
+# Bystander        2        3365
 # Infected      4385         465
 
 
 table(sce$Library, sce$InfectedStatus)%>% prop.table(margin = 1)
 #                 Infected  NotInfected
 # Mock      0.0000000000 1.0000000000
-# Bystander 0.0008910009 0.9991089991
+# Bystander 0.0005940006 0.9994059994
 # Infected  0.9041237113 0.0958762887
 
 
@@ -278,6 +246,9 @@ table(sce$Library, sce$InfectedStatus)%>% prop.table(margin = 1)
 
 n.colData <- ncol(colData(sce)) 
 virus_gene_counts <- tail(assay(sce, "counts"), 8) %>% t() %>% as.matrix()
+colData(sce) <- cbind(colData(sce), virus_gene_counts)
+names(colData(sce))[(n.colData+1):(n.colData+8)] <- paste0(names(colData(sce))[(n.colData+1):(n.colData+8)],"_counts")
+n.colData <- ncol(colData(sce)) 
 colData(sce) <- cbind(colData(sce), virus_gene_counts/sce$total_counts * 100)
 names(colData(sce))[(n.colData+1):(n.colData+8)] <- paste0(names(colData(sce))[(n.colData+1):(n.colData+8)],"_pct")
 
@@ -334,7 +305,8 @@ for (i in 1:8){
   #first calculate density and find local maxima
   des.1v <-density(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i])
   min.indiv[i] <- des.1v$x[which(diff(sign(diff(des.1v$y)))==2)+1][1]
-  x11(height = 7, width = 7)
+  jpeg(paste0("results/test_filter_and_normalize/2020-04-02-cal07_",names(min.indiv)[i],"_genes.jpeg"),
+       height = 7, width = 7, units = "in", res = 300, quality = 100)
   layout(matrix(1:2,2,1))
   temp1 <- vir_pcts_log10[sce$Library == "Bystander",i]
   temp2 <- vir_pcts_log10[sce$Library == "Bystander" & vir_pcts[,i] > 0 & sce$InfectedStatus == "NotInfected",i]
@@ -344,6 +316,7 @@ for (i in 1:8){
   hist(vir_pcts_log10[sce$Library == "Infected",i],1000, xlim = c(-3,2),
        main = paste("Infected",names(vir_pcts)[i]), ylim = c(0,30))
   abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
+  dev.off()
 }
 
 #This worked well for everyone but PB2
@@ -385,7 +358,7 @@ dev.off()
 
 
 
-#call present/absent for each gene
+#call present/absent for each gene ----
 
 
 sce$PB2_status <- ifelse(sce$PB2_pct_log10 > min.indiv["PB2"], "Present", "Absent")
@@ -403,32 +376,93 @@ table(sce$Library,sce$HA_status)
 sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
 table(sce$Library,sce$NP_status)
 
-sce$NP_status <- ifelse(sce$NP_pct_log10 > min.indiv["NP"], "Present", "Absent")
-table(sce$Library,sce$NP_status)
-
 sce$NA_status <- ifelse(sce$NA_pct_log10 > min.indiv["NA"], "Present", "Absent")
 table(sce$Library,sce$NA_status)
 
 sce$M_status <- ifelse(sce$M_pct_log10 > min.indiv["M"], "Present", "Absent")
 table(sce$Library,sce$M_status)
 
+sce$NS_status <- ifelse(sce$NS_pct_log10 > min.indiv["NS"], "Present", "Absent")
+table(sce$Library,sce$NS_status)
 
 
+#calculate the number viral genes present ----
 
+temp <-  as.matrix(colData(sce)[,grep("_status$", names(colData(sce)))])
+sce$NumPres <- rowSums(temp == "Present")
+table(sce$Library, sce$NumPres)
+#              0    1    2    3    4    5    6    7    8
+# Mock      4314    0    0    0    0    0    0    0    0
+# Bystander 3359    4    2    1    0    0    1    0    0
+# Infected   406   55   34   82  106  204  593 1358 2012
 
 
 
 ##Save rds file----
 
-saveRDS(sce, file = paste0(out, "_sce_finalHostVirus.rds"))
+saveRDS(sce, file = "results/test_filter_and_normalize/2020-04-02-cal07_finalHostVirus.rds")
 #sce <- readRDS(paste0(out, "_sce_finalHostVirus.rds"))
 
-##Create first metadata file ####
-meta.1 <- colData(sce)[,c("Barcode","Library","total_features_by_counts","total_counts","CellCycle")]
-out.meta <- paste(out,"_1st_metadata.tsv",sep = "")
-write.table(meta.1, file = out.meta, sep = "\t")
+##Create metadata file ####
+meta.1 <- colData(sce)
+out.meta <- "results/test_filter_and_normalize/2020-04-02-cal07_metadata.tsv"
+write.table(meta.1, file = out.meta, sep = "\t", row.names = FALSE)
 
 
-
-
-q()
+sessionInfo()
+# sessionInfo()
+# R version 3.6.2 (2019-12-12)
+# Platform: x86_64-w64-mingw32/x64 (64-bit)
+# Running under: Windows 10 x64 (build 18362)
+# 
+# Matrix products: default
+# 
+# locale:
+#   [1] LC_COLLATE=English_United States.1252  LC_CTYPE=English_United States.1252   
+# [3] LC_MONETARY=English_United States.1252 LC_NUMERIC=C                          
+# [5] LC_TIME=English_United States.1252    
+# 
+# attached base packages:
+#   [1] parallel  stats4    stats     graphics  grDevices utils     datasets  methods  
+# [9] base     
+# 
+# other attached packages:
+#   [1] mixtools_1.2.0              magrittr_1.5                BiocSingular_1.2.1         
+# [4] scran_1.14.5                EnsDb.Hsapiens.v86_2.99.0   ensembldb_2.10.2           
+# [7] AnnotationFilter_1.10.0     GenomicFeatures_1.38.0      AnnotationDbi_1.48.0       
+# [10] scater_1.14.6               ggplot2_3.2.1               DropletUtils_1.6.1         
+# [13] SingleCellExperiment_1.8.0  SummarizedExperiment_1.16.1 DelayedArray_0.12.2        
+# [16] BiocParallel_1.20.1         matrixStats_0.55.0          Biobase_2.46.0             
+# [19] GenomicRanges_1.38.0        GenomeInfoDb_1.22.0         IRanges_2.20.2             
+# [22] S4Vectors_0.24.2            BiocGenerics_0.32.0         simpleSingleCell_1.10.1    
+# 
+# loaded via a namespace (and not attached):
+#   [1] segmented_1.1-0          ProtGenerics_1.18.0      bitops_1.0-6            
+# [4] bit64_0.9-7              progress_1.2.2           httr_1.4.1              
+# [7] tools_3.6.2              backports_1.1.5          R6_2.4.1                
+# [10] irlba_2.3.3              HDF5Array_1.14.1         vipor_0.4.5             
+# [13] DBI_1.1.0                lazyeval_0.2.2           colorspace_1.4-1        
+# [16] withr_2.1.2              tidyselect_0.2.5         gridExtra_2.3           
+# [19] prettyunits_1.1.0        bit_1.1-15.1             curl_4.3                
+# [22] compiler_3.6.2           BiocNeighbors_1.4.1      rtracklayer_1.46.0      
+# [25] scales_1.1.0             askpass_1.1              rappdirs_0.3.1          
+# [28] stringr_1.4.0            digest_0.6.23            Rsamtools_2.2.1         
+# [31] R.utils_2.9.2            XVector_0.26.0           pkgconfig_2.0.3         
+# [34] dbplyr_1.4.2             limma_3.42.0             rlang_0.4.2             
+# [37] rstudioapi_0.10          RSQLite_2.2.0            DelayedMatrixStats_1.8.0
+# [40] dplyr_0.8.3              R.oo_1.23.0              RCurl_1.95-4.12         
+# [43] GenomeInfoDbData_1.2.2   Matrix_1.2-18            Rcpp_1.0.3              
+# [46] ggbeeswarm_0.6.0         munsell_0.5.0            Rhdf5lib_1.8.0          
+# [49] viridis_0.5.1            lifecycle_0.1.0          R.methodsS3_1.7.1       
+# [52] stringi_1.4.5            edgeR_3.28.0             MASS_7.3-51.4           
+# [55] zlibbioc_1.32.0          rhdf5_2.30.1             BiocFileCache_1.10.2    
+# [58] grid_3.6.2               blob_1.2.0               dqrng_0.2.1             
+# [61] crayon_1.3.4             lattice_0.20-38          splines_3.6.2           
+# [64] Biostrings_2.54.0        hms_0.5.3                locfit_1.5-9.1          
+# [67] zeallot_0.1.0            pillar_1.4.3             igraph_1.2.4.2          
+# [70] biomaRt_2.42.0           XML_3.98-1.20            glue_1.3.1              
+# [73] vctrs_0.2.1              gtable_0.3.0             openssl_1.4.1           
+# [76] purrr_0.3.3              kernlab_0.9-29           assertthat_0.2.1        
+# [79] rsvd_1.0.2               survival_3.1-8           viridisLite_0.3.0       
+# [82] tibble_2.1.3             GenomicAlignments_1.22.1 beeswarm_0.2.3          
+# [85] memoise_1.1.0            statmod_1.4.33 
