@@ -22,7 +22,7 @@ factors2plot <- c("Library", "CellCycle", "TotalVirus", "TotalPB2", "TotalPB1", 
 
 
 ##get command line
-args <- commandArgs(TRUE)
+#args <- commandArgs(TRUE)
 indir <- args[1]          ###indir: input directory. this is a folder output from CellRanger containing the raw matrix (i.e. not the filtered matrix)
 out <- args[2]            ###out: output base name (multiple files are output)
 metafile <- args[3]       ###metafile: this is currently a tab-delimited table with cell ID rows and metadata columns to be added to the SCE object
@@ -51,21 +51,21 @@ rowData(sce)$chr <- location
 remove(location)
 
 
-##load metadata if present
-if (file.exists(metafile)){
-  lib <- read.table(metafile,header=TRUE,sep="\t")
-  if (file.exists(factorfile)){
-    factors2plot <- scan(factorfile,what = "character")
-  }
-  ##add metadata to singlecellexperiment object
-  colData(sce) <- DataFrame(lib)
-  remove(lib)
-} else {
-  cellIDs <- colnames(sce)
-  out.file <- paste(out,"_AllCellIDs.tsv",sep = "")
-  write.table(cellIDs,file = out.file,sep = "\t")
-  remove(cellIDs)
-}
+# ##load metadata if present
+# if (file.exists(metafile)){
+#   lib <- read.table(metafile,header=TRUE,sep="\t")
+#   if (file.exists(factorfile)){
+#     factors2plot <- scan(factorfile,what = "character")
+#   }
+#   ##add metadata to singlecellexperiment object
+#   colData(sce) <- DataFrame(lib)
+#   remove(lib)
+# } else {
+#   cellIDs <- colnames(sce)
+#   out.file <- paste(out,"_AllCellIDs.tsv",sep = "")
+#   write.table(cellIDs,file = out.file,sep = "\t")
+#   remove(cellIDs)
+# }
 
 ##filtering out empty cells
 ##call cells: monte carlo p-values; p-value = sig difference from ambient pool rna
@@ -78,13 +78,20 @@ sce <- sce[,which(e.out$FDR <= 0.001)]
 ##calculate preliminary QC stats
 sce <- calculateQCMetrics(sce)  ###no MT control here, cells are infected
 
+# sce <- perCellQCMetrics(sce)
+# sce <- perFeatureQCMetrics(sce)
 
-##filter 1: filter out doublets if column is present
-if (file.exists(metafile)){
-  keep.doublets <- sce$Doublets == 0
-  sce <- sce[,which(keep.doublets)]
-  remove(keep.doublets)
-}
+
+
+# ##filter 1: filter out doublets if column is present
+# if (file.exists(metafile)){
+#   keep.doublets <- sce$Doublets == 0
+#   sce <- sce[,which(keep.doublets)]
+#   remove(keep.doublets)
+# }
+
+
+
 
 
 ##filter 2: filter cells by min expressed features (i.e. filter matrix columns)
@@ -201,10 +208,8 @@ options(stringsAsFactors = TRUE)
 
 
 ## calculate doublets based on total host norm counts (minus virus)
-
-hostNormTotal <- colSums(head(as.matrix(assay(sce,"normcounts")),-8))
-
 #separately by library or all together?!?
+
 
 hostNormTotal <- colSums(head(as.matrix(assay(sce,"normcounts")),-8))
 
@@ -237,7 +242,7 @@ abline(v = 2*median(hostRawTotal[sce$Library == "Infected"]), col = 2)
 dev.off()
 
 
-
+sce$Doublets <- as.numeric(hostNormTotal > 2*median(hostNormTotal))
 
 if (file.exists(metafile)){
   ##save Seurat-safe object

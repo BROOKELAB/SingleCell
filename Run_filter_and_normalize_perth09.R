@@ -426,12 +426,60 @@ table(sce$Library, sce$NumPres)
 ##Save rds file----
 
 saveRDS(sce, file = "results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
-#sce <- readRDS(paste0(out, "_sce_finalHostVirus.rds"))
+sce <- readRDS("results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
 
 ##Create metadata file ####
 meta.1 <- colData(sce)
 out.meta <- "results/test_filter_and_normalize/2020-04-02-perth09_metadata.tsv"
 write.table(meta.1, file = out.meta, sep = "\t", row.names = FALSE)
+
+
+##Subset to infected Library ----
+
+sce.inf <- sce[,sce$Library == "Infected"]
+
+
+##Do normalization ----
+
+clusters <- quickCluster(sce.inf, use.ranks=FALSE, BSPARAM=IrlbaParam())
+
+##create size factors for normalizing within clusters
+sce.inf <- computeSumFactors(sce.inf, min.mean=0.1, cluster=clusters)
+sf <- sce.inf@int_colData@listData$size_factor
+sce.inf <- computeSumFactors(sce.inf, min.mean=0.1,scaling = sf)
+#remove(clusters)
+#remove(sf)
+
+##create logged & non-logged normalized values####
+sce.inf <- logNormCounts(sce.inf,log = FALSE)
+sce.inf <- logNormCounts(sce.inf,log = TRUE)
+
+
+#Output raw and normalized counts for infected cells
+
+normcounts <- as.matrix(assay(sce.inf,"normcounts"))
+write.table(cbind(gene = rownames(normcounts), normcounts), 
+            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Library_normcounts.txt",
+            sep = "\t")
+
+rawcounts <- as.matrix(assay(sce.inf,"counts"))
+write.table(cbind(gene = rownames(rawcounts), rawcounts), 
+            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Library_rawcounts.txt",
+            sep = "\t")
+
+
+#also subset to just InfectedStatus == Infected cells
+
+normcounts <- normcounts[, sce.inf$InfectedStatus == "Infected"]
+write.table(cbind(gene = rownames(normcounts), normcounts), 
+            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Status_normcounts.txt",
+            sep = "\t")
+
+rawcounts <- rawcounts[, sce.inf$InfectedStatus == "Infected"]
+write.table(cbind(gene = rownames(rawcounts), rawcounts), 
+            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Status_rawcounts.txt",
+            sep = "\t")
+
 
 
 sessionInfo()
