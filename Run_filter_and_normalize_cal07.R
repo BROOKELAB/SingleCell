@@ -418,6 +418,18 @@ write.table(meta.1, file = out.meta, sep = "\t", row.names = FALSE)
 
 sce.inf <- sce[,sce$Library == "Infected" & sce$InfectedStatus == "Infected"]
 
+#Re filter genes to keep only ones present in at least 5 infected cells ----
+#(this is same as what happens in Seurat testing)
+
+dim(sce.inf)
+#19779  4381
+keep.feature <- nexprs(sce.inf, byrow=TRUE) >= 5
+sce.inf <- sce.inf[keep.feature,]
+remove(keep.feature)
+dim(sce.inf)
+#16407  4381
+
+
 
 ##Do normalization ----
 
@@ -429,6 +441,10 @@ sf <- sce.inf@int_colData@listData$size_factor
 sce.inf <- computeSumFactors(sce.inf, min.mean=0.1,scaling = sf)
 #remove(clusters)
 #remove(sf)
+
+#Remove viral genes (same as Seurat testing)
+
+sce.inf <- sce.inf[!rownames(sce.inf) %in% c("PB2","PB1","PA","HA","NP","NA","M","NS"),]
 
 
 ##Save rds file for NBID testing ----
