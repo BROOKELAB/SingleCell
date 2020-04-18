@@ -431,7 +431,7 @@ sce.inf <- computeSumFactors(sce.inf, min.mean=0.1,scaling = sf)
 #remove(sf)
 
 
-##Save rds file for NCBI testing ----
+##Save rds file for NBID testing ----
 
 saveRDS(sce.inf, file = "results/test_filter_and_normalize/2020-04-18-cal07_InfectedOnly.rds")
 

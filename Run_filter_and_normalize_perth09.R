@@ -35,7 +35,6 @@ library(EnsDb.Hsapiens.v86)
 library(scran)
 library(BiocSingular)
 library(magrittr)
-library(mixtools)
 
 
 ###Fix NA gene ####
@@ -235,20 +234,22 @@ min.all
 
 
 x11(height = 10, width = 6)
-jpeg("results/test_filter_and_normalize/2020-04-02-perth09_VirusPcts.jpeg",
+jpeg("results/test_filter_and_normalize/2020-04-17-perth09_VirusPcts.jpeg",
      height = 10, width = 6, units = "in", res = 300, quality = 100)
 layout(matrix(1:3,3,1))
+par(mar = c(3,5,4,1))
 hist(sce$virus_pct_log10[sce$Library=="Mock"], 1000, xlim = c(-3,2),
-     main = "Mock virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
-abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Mock"], 0.95), col = "blue", lty = 2, lwd = 2)
+     main = "Mock", ylim = c(0,40),cex.lab = 2,cex.main = 2, cex.axis = 1.5,
+     xlab = "", ylab = "cell number")
+abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
 hist(sce$virus_pct_log10[sce$Library=="Bystander"],1000, xlim = c(-3,2),
-     main = "Bystander virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
-abline(v = quantile(sce$virus_pct_log10[sce$virus_pct>0 & sce$Library == "Bystander"], 0.95), col = 2, lty = 2, lwd = 2)
+     main = "Bystander", ylim = c(0,40),cex.lab = 2,cex.main = 2, cex.axis = 1.5,
+     xlab = "", ylab = "cell number")
+abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
+par(mar = c(6,5,4,1))
 hist(sce$virus_pct_log10[sce$Library=="Infected"],1000, xlim = c(-3,2),
-     main = "Infected virus percentage", ylim = c(0,25),
-     xlab = "log10(viral gene percentage)")
+     main = "Infected", ylim = c(0,40),cex.lab = 2,cex.main = 2, cex.axis = 1.5,
+     xlab = "log10(viral gene percentage)", ylab = "cell number")
 abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
 
 dev.off()
@@ -373,13 +374,13 @@ for (i in 1:8){
 
 
 
-jpeg("results/test_filter_and_normalize/2020-04-02-perth09_8_genes.jpeg",
+jpeg("results/test_filter_and_normalize/2020-04-17-perth09_8_genes.jpeg",
      height = 10, width = 6, units = "in", res = 300, quality = 100)
 layout(matrix(1:8, 4, 2, byrow = TRUE))
 for (i in 1:8){
   hist(vir_pcts_log10[sce$Library == "Infected" & vir_pcts[,i] > 0,i], 
-       1000, xlim = c(-3,2), 
-       main = names(vir_pcts_log10)[i])
+       1000, xlim = c(-3,2), xlab = "log10(% of mRNA from each flu gene)", ylim = c(0,25), 
+       main = gsub("_pct_log10","",names(vir_pcts_log10)[i]), ylab = "cell number")
   abline(v = min.indiv[i], col = 3, lty = 2, lwd = 2)
 }
 dev.off()
@@ -426,7 +427,7 @@ table(sce$Library, sce$NumPres)
 ##Save rds file----
 
 saveRDS(sce, file = "results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
-sce <- readRDS("results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
+#sce <- readRDS("results/test_filter_and_normalize/2020-04-02-perth09_finalHostVirus.rds")
 
 ##Create metadata file ####
 meta.1 <- colData(sce)
@@ -436,7 +437,7 @@ write.table(meta.1, file = out.meta, sep = "\t", row.names = FALSE)
 
 ##Subset to infected Library ----
 
-sce.inf <- sce[,sce$Library == "Infected"]
+sce.inf <- sce[,sce$Library == "Infected" & sce$InfectedStatus == "Infected"]
 
 
 ##Do normalization ----
@@ -450,43 +451,20 @@ sce.inf <- computeSumFactors(sce.inf, min.mean=0.1,scaling = sf)
 #remove(clusters)
 #remove(sf)
 
-##create logged & non-logged normalized values####
-sce.inf <- logNormCounts(sce.inf,log = FALSE)
-sce.inf <- logNormCounts(sce.inf,log = TRUE)
+
+##Save rds file for NBID testing ----
+
+saveRDS(sce.inf, file = "results/test_filter_and_normalize/2020-04-18-perth09_InfectedOnly.rds")
 
 
-#Output raw and normalized counts for infected cells
-
-normcounts <- as.matrix(assay(sce.inf,"normcounts"))
-write.table(cbind(gene = rownames(normcounts), normcounts), 
-            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Library_normcounts.txt",
-            sep = "\t")
-
-rawcounts <- as.matrix(assay(sce.inf,"counts"))
-write.table(cbind(gene = rownames(rawcounts), rawcounts), 
-            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Library_rawcounts.txt",
-            sep = "\t")
-
-
-#also subset to just InfectedStatus == Infected cells
-
-normcounts <- normcounts[, sce.inf$InfectedStatus == "Infected"]
-write.table(cbind(gene = rownames(normcounts), normcounts), 
-            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Status_normcounts.txt",
-            sep = "\t")
-
-rawcounts <- rawcounts[, sce.inf$InfectedStatus == "Infected"]
-write.table(cbind(gene = rownames(rawcounts), rawcounts), 
-            file = "results/test_filter_and_normalize/2020-04-03-perth09-Infected_Status_rawcounts.txt",
-            sep = "\t")
+## Import this into biocluster to do testing there
 
 
 
 sessionInfo()
-# sessionInfo()
-# R version 3.6.2 (2019-12-12)
+# R version 3.6.3 (2020-02-29)
 # Platform: x86_64-w64-mingw32/x64 (64-bit)
-# Running under: Windows 10 x64 (build 18362)
+# Running under: Windows 10 x64 (build 18363)
 # 
 # Matrix products: default
 # 
@@ -500,43 +478,42 @@ sessionInfo()
 # [9] base     
 # 
 # other attached packages:
-#   [1] mixtools_1.2.0              magrittr_1.5                BiocSingular_1.2.1         
-# [4] scran_1.14.5                EnsDb.Hsapiens.v86_2.99.0   ensembldb_2.10.2           
-# [7] AnnotationFilter_1.10.0     GenomicFeatures_1.38.0      AnnotationDbi_1.48.0       
-# [10] scater_1.14.6               ggplot2_3.2.1               DropletUtils_1.6.1         
-# [13] SingleCellExperiment_1.8.0  SummarizedExperiment_1.16.1 DelayedArray_0.12.2        
-# [16] BiocParallel_1.20.1         matrixStats_0.55.0          Biobase_2.46.0             
-# [19] GenomicRanges_1.38.0        GenomeInfoDb_1.22.0         IRanges_2.20.2             
-# [22] S4Vectors_0.24.2            BiocGenerics_0.32.0         simpleSingleCell_1.10.1    
+#   [1] magrittr_1.5                BiocSingular_1.2.2          scran_1.14.6               
+# [4] EnsDb.Hsapiens.v86_2.99.0   ensembldb_2.10.2            AnnotationFilter_1.10.0    
+# [7] GenomicFeatures_1.38.2      AnnotationDbi_1.48.0        scater_1.14.6              
+# [10] ggplot2_3.3.0               DropletUtils_1.6.1          SingleCellExperiment_1.8.0 
+# [13] SummarizedExperiment_1.16.1 DelayedArray_0.12.2         BiocParallel_1.20.1        
+# [16] matrixStats_0.56.0          Biobase_2.46.0              GenomicRanges_1.38.0       
+# [19] GenomeInfoDb_1.22.1         IRanges_2.20.2              S4Vectors_0.24.3           
+# [22] BiocGenerics_0.32.0         simpleSingleCell_1.10.1    
 # 
 # loaded via a namespace (and not attached):
-#   [1] segmented_1.1-0          ProtGenerics_1.18.0      bitops_1.0-6            
-# [4] bit64_0.9-7              progress_1.2.2           httr_1.4.1              
-# [7] tools_3.6.2              backports_1.1.5          R6_2.4.1                
-# [10] irlba_2.3.3              HDF5Array_1.14.1         vipor_0.4.5             
-# [13] DBI_1.1.0                lazyeval_0.2.2           colorspace_1.4-1        
-# [16] withr_2.1.2              tidyselect_0.2.5         gridExtra_2.3           
-# [19] prettyunits_1.1.0        bit_1.1-15.1             curl_4.3                
-# [22] compiler_3.6.2           BiocNeighbors_1.4.1      rtracklayer_1.46.0      
-# [25] scales_1.1.0             askpass_1.1              rappdirs_0.3.1          
-# [28] stringr_1.4.0            digest_0.6.23            Rsamtools_2.2.1         
-# [31] R.utils_2.9.2            XVector_0.26.0           pkgconfig_2.0.3         
-# [34] dbplyr_1.4.2             limma_3.42.0             rlang_0.4.2             
-# [37] rstudioapi_0.10          RSQLite_2.2.0            DelayedMatrixStats_1.8.0
-# [40] dplyr_0.8.3              R.oo_1.23.0              RCurl_1.95-4.12         
-# [43] GenomeInfoDbData_1.2.2   Matrix_1.2-18            Rcpp_1.0.3              
-# [46] ggbeeswarm_0.6.0         munsell_0.5.0            Rhdf5lib_1.8.0          
-# [49] viridis_0.5.1            lifecycle_0.1.0          R.methodsS3_1.7.1       
-# [52] stringi_1.4.5            edgeR_3.28.0             MASS_7.3-51.4           
-# [55] zlibbioc_1.32.0          rhdf5_2.30.1             BiocFileCache_1.10.2    
-# [58] grid_3.6.2               blob_1.2.0               dqrng_0.2.1             
-# [61] crayon_1.3.4             lattice_0.20-38          splines_3.6.2           
-# [64] Biostrings_2.54.0        hms_0.5.3                locfit_1.5-9.1          
-# [67] zeallot_0.1.0            pillar_1.4.3             igraph_1.2.4.2          
-# [70] biomaRt_2.42.0           XML_3.98-1.20            glue_1.3.1              
-# [73] vctrs_0.2.1              gtable_0.3.0             openssl_1.4.1           
-# [76] purrr_0.3.3              kernlab_0.9-29           assertthat_0.2.1        
-# [79] rsvd_1.0.2               survival_3.1-8           viridisLite_0.3.0       
-# [82] tibble_2.1.3             GenomicAlignments_1.22.1 beeswarm_0.2.3          
-# [85] memoise_1.1.0            statmod_1.4.33
+#   [1] ProtGenerics_1.18.0      bitops_1.0-6             bit64_0.9-7             
+# [4] progress_1.2.2           httr_1.4.1               tools_3.6.3             
+# [7] R6_2.4.1                 irlba_2.3.3              HDF5Array_1.14.3        
+# [10] vipor_0.4.5              lazyeval_0.2.2           DBI_1.1.0               
+# [13] colorspace_1.4-1         withr_2.1.2              tidyselect_1.0.0        
+# [16] gridExtra_2.3            prettyunits_1.1.1        bit_1.1-15.2            
+# [19] curl_4.3                 compiler_3.6.3           cli_2.0.2               
+# [22] BiocNeighbors_1.4.2      rtracklayer_1.46.0       scales_1.1.0            
+# [25] askpass_1.1              rappdirs_0.3.1           Rsamtools_2.2.3         
+# [28] stringr_1.4.0            digest_0.6.25            R.utils_2.9.2           
+# [31] XVector_0.26.0           pkgconfig_2.0.3          dbplyr_1.4.2            
+# [34] limma_3.42.2             rlang_0.4.5              rstudioapi_0.11         
+# [37] RSQLite_2.2.0            DelayedMatrixStats_1.8.0 dplyr_0.8.5             
+# [40] R.oo_1.23.0              RCurl_1.98-1.1           GenomeInfoDbData_1.2.2  
+# [43] Matrix_1.2-18            Rcpp_1.0.4.6             ggbeeswarm_0.6.0        
+# [46] munsell_0.5.0            Rhdf5lib_1.8.0           fansi_0.4.1             
+# [49] viridis_0.5.1            lifecycle_0.2.0          R.methodsS3_1.8.0       
+# [52] stringi_1.4.6            edgeR_3.28.1             zlibbioc_1.32.0         
+# [55] rhdf5_2.30.1             BiocFileCache_1.10.2     grid_3.6.3              
+# [58] blob_1.2.1               dqrng_0.2.1              crayon_1.3.4            
+# [61] lattice_0.20-38          Biostrings_2.54.0        hms_0.5.3               
+# [64] locfit_1.5-9.4           pillar_1.4.3             igraph_1.2.5            
+# [67] biomaRt_2.42.1           XML_3.99-0.3             glue_1.4.0              
+# [70] vctrs_0.2.4              gtable_0.3.0             openssl_1.4.1           
+# [73] purrr_0.3.3              assertthat_0.2.1         rsvd_1.0.3              
+# [76] viridisLite_0.3.0        tibble_3.0.0             GenomicAlignments_1.22.1
+# [79] beeswarm_0.2.3           memoise_1.1.0            statmod_1.4.34          
+# [82] ellipsis_0.3.0  
  
