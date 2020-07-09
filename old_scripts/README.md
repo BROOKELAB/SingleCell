@@ -1,3 +1,5 @@
+# NOTE: these are the old analyses
+
 # SingleCell
 ### 10X Chromium single cell pipeline scripts
 #### For use in analysis of Influenza infected human lung cells
