@@ -69,7 +69,7 @@ saveRDS(sce, file = paste0(out, "_sce_postCellCycle.rds"))
 
 
 #RESTART here 1 ----
-sce <- readRDS("results/test_filter_and_normalize/2020-03-09_sce_postCellCycle.rds")
+#sce <- readRDS("results/test_filter_and_normalize/2020-03-09_sce_postCellCycle.rds")
 
 #### Add in library IDs ####
 
@@ -88,6 +88,13 @@ rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
 rownames(sce)[rownames(sce) %in% "23308118"] <- "NA"
 
+grep("^IFN", rownames(sce), value = TRUE)
+#  [1] "IFNLR1"   "IFNGR1"   "IFNB1"    "IFNW1"    "IFNA21"   "IFNA4"   
+#  [7] "IFNA7"    "IFNA10"   "IFNA16"   "IFNA17"   "IFNA14"   "IFNA5"   
+# [13] "IFNA6"    "IFNA13"   "IFNA2"    "IFNA8"    "IFNA1"    "IFNE"    
+# [19] "IFNK"     "IFNG-AS1" "IFNG"     "IFNL3"    "IFNL2"    "IFNL1"   
+# [25] "IFNAR2"   "IFNAR1"   "IFNGR2" 
+
 ##Filter 1: filter cells by min expressed features (i.e. filter matrix columns)####
 ##remove low feature cell columns
 keep.cell <- sce$total_features_by_counts > min.features
@@ -104,8 +111,46 @@ remove(keep.feature)
 dim(sce)
 #19779 13182
 
+grep("^IFN", rownames(sce), value = TRUE)
+#[1] "IFNLR1" "IFNGR1" "IFNW1"  "IFNL2"  "IFNL1"  "IFNAR2" "IFNAR1" "IFNGR2"
+
 
 # Create graph for doublet calling
+
+sce$doublet <- colSums(head(assay(sce, "counts"), -8))
+
+library(ggridges)
+library(Seurat)
+so <- CreateSeuratObject(counts = as.matrix(assay(sce, "counts")), 
+                         project = "cal07", meta.data = as.data.frame(colData(sce))[,-1])
+
+ggplotColours <- function(n = 6, h = c(0, 360) + 15){
+  if ((diff(h) %% 360) < 1) h[2] <- h[2] - 360/n
+  hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+
+ggplotColours(n = 3)
+# "#F8766D" "#00BA38" "#619CFF"
+
+so$Library <- factor(so$Library, levels = c("Infected","Bystander","Mock"))
+
+table(so$Library)
+# Infected Bystander      Mock 
+#     4959      3612      4611 
+
+#x11(5,5)
+RidgePlot(so, features = "doublet", group.by = "Library", assay = "RNA",
+          same.y.lims = TRUE, cols = c("#00BA38","#F8766D","#619CFF"),
+          log = FALSE, slot = "data") +  
+  geom_vline(xintercept = 2*median(so$doublet), size = 1) +
+  theme_ridges(grid = FALSE, center_axis_labels = TRUE) +
+  xlab("UMI counts of host transcripts") + ylab("") + NoLegend() + ggtitle("Cal07") +
+  theme(plot.title = element_text(hjust = 1))
+
+ggsave("results/test_filter_and_normalize/2020-05-04-cal07_doublet_calling.pdf")
+
+rm(so)
+
 
 
 ##Filter 3: Call doublets####
@@ -138,7 +183,7 @@ out <- "results/test_filter_and_normalize/2020-03-30-cal07"
 saveRDS(sce, file = paste0(out, "_sce_noNorm.rds"))
 
 #RESTART here 2 ----
-sce <- readRDS(paste0(out, "_sce_noNorm.rds"))
+#sce <- readRDS(paste0(out, "_sce_noNorm.rds"))
 
 
 
@@ -203,7 +248,7 @@ min.all <- des.all$x[which(diff(sign(diff(des.all$y)))==2)+1]
 min.all
 #-0.04843422  1.72627621
 
-x11(height = 10, width = 6)
+#x11(height = 10, width = 6)
 jpeg("results/test_filter_and_normalize/2020-04-17-cal07_VirusPcts.jpeg",
     height = 10, width = 6, units = "in", res = 300, quality = 100)
 layout(matrix(1:3,3,1))
@@ -452,7 +497,6 @@ sce.inf <- sce.inf[!rownames(sce.inf) %in% c("PB2","PB1","PA","HA","NP","NA","M"
 saveRDS(sce.inf, file = "results/test_filter_and_normalize/2020-04-18-cal07_InfectedOnly.rds")
 
 
-## Import this into biocluster to do testing there
 
 
 

@@ -107,6 +107,15 @@ rownames(sce) <- uniquifyFeatureNames(rowData(sce)$ID, rowData(sce)$Symbol)
 
 rownames(sce)[rownames(sce) %in% "NA_vir"] <- "NA"
 
+grep("^IFN", rownames(sce), value = TRUE)
+#  [1] "IFNLR1"   "IFNGR1"   "IFNB1"    "IFNW1"    "IFNA21"   "IFNA4"   
+#  [7] "IFNA7"    "IFNA10"   "IFNA16"   "IFNA17"   "IFNA14"   "IFNA5"   
+# [13] "IFNA6"    "IFNA13"   "IFNA2"    "IFNA8"    "IFNA1"    "IFNE"    
+# [19] "IFNK"     "IFNG-AS1" "IFNG"     "IFNL3"    "IFNL2"    "IFNL1"   
+# [25] "IFNAR2"   "IFNAR1"   "IFNGR2" 
+
+
+
 ##Filter 1: filter cells by min expressed features (i.e. filter matrix columns)####
 ##remove low feature cell columns
 keep.cell <- sce$total_features_by_counts > min.features
@@ -126,6 +135,60 @@ sce <- sce[keep.feature,]
 remove(keep.feature)
 dim(sce)
 #19235 10059
+
+grep("^IFN", rownames(sce), value = TRUE)
+#"IFNLR1" "IFNGR1" "IFNL2"  "IFNL1"  "IFNAR2" "IFNAR1" "IFNGR2"
+
+
+# Create graph for doublet calling
+
+sce$doublet <- colSums(head(assay(sce, "counts"), -8))
+
+library(ggridges)
+library(Seurat)
+so <- CreateSeuratObject(counts = as.matrix(assay(sce, "counts")), 
+                         project = "cal07", meta.data = as.data.frame(colData(sce))[,-1])
+
+ggplotColours <- function(n = 6, h = c(0, 360) + 15){
+  if ((diff(h) %% 360) < 1) h[2] <- h[2] - 360/n
+  hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+
+ggplotColours(n = 3)
+# "#F8766D" "#00BA38" "#619CFF"
+
+so$Library <- factor(so$Library, levels = c("Infected","Bystander","Mock"))
+
+table(so$Library)
+# Infected Bystander      Mock 
+#     2398      3166      4495 
+
+x11(5,5)
+RidgePlot(so, features = "doublet", group.by = "Library", assay = "RNA",
+          same.y.lims = TRUE, cols = c("#00BA38","#F8766D","#619CFF"),
+          log = FALSE, slot = "data") +  
+  geom_vline(xintercept = 2*median(so$doublet), size = 1) +
+  theme_ridges(grid = FALSE, center_axis_labels = TRUE) +
+  xlab("UMI counts of host transcripts") + ylab("") + NoLegend() + ggtitle("Perth09") +
+  theme(plot.title = element_text(hjust = 1))
+
+ggsave("results/test_filter_and_normalize/2020-05-04-perth09_doublet_calling.pdf")
+
+rm(so)
+
+
+temp1 <- colSums(head(assay(sce, "counts"), -8))
+x11(height = 10, width = 6)
+layout(matrix(1:3,3,1))
+hist(temp1[sce$Library=="Mock"], 1000, xlim = c(750,96000),
+     main = "Mock")
+abline(v = 2*median(temp1), col =2)
+hist(temp1[sce$Library=="Bystander"],1000, xlim = c(750,96000),
+     main = "Bystander")
+abline(v = 2*median(temp1), col =2)
+hist(temp1[sce$Library=="Infected"],1000, xlim = c(750,96000),
+     main = "Infected")
+abline(v = 2*median(temp1), col =2)
 
 
 ##Filter 3: Call doublets####
@@ -234,7 +297,7 @@ min.all
 
 
 x11(height = 10, width = 6)
-jpeg("results/test_filter_and_normalize/2020-04-17-perth09_VirusPcts.jpeg",
+jpeg("results/test_filter_and_normalize/2020-04-21-perth09_VirusPcts.jpeg",
      height = 10, width = 6, units = "in", res = 300, quality = 100)
 layout(matrix(1:3,3,1))
 par(mar = c(3,5,4,1))
@@ -249,7 +312,7 @@ abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
 par(mar = c(6,5,4,1))
 hist(sce$virus_pct_log10[sce$Library=="Infected"],1000, xlim = c(-3,2),
      main = "Infected", ylim = c(0,40),cex.lab = 2,cex.main = 2, cex.axis = 1.5,
-     xlab = "log10(viral gene percentage)", ylab = "cell number")
+     xlab = "log10(% of mRNA from flu)", ylab = "cell number")
 abline(v = min.all[1], col = 3, lty = 2, lwd = 2)
 
 dev.off()
