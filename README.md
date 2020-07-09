@@ -1,26 +1,26 @@
 # SingleCell
-### 10X Chromium single cell pipeline scripts
-#### For use in analysis of Influenza infected human lung cells
+### 10X Chromium single cell scripts
+#### Published as [Single cell heterogeneity in influenza A virus gene expression shapes the innate antiviral response to infection](https://doi.org/10.1371/journal.ppat.1008671), Sun et al. 2020 PLOS Pathogens
 
 ## Analysis Overview:
 These scripts use the SimpleSingleCell and Seurat packages to perform various analyses downstream of Cell Ranger on a 10X Chromium Single Cell experiment (with Influenza infected human lung cells).  Steps performed include quality filtering, normalization, annotation, dimensional reduction (tSNE), and differential gene expression.
 
 ### requirements:
-The scripts require either R or Perl to be installed and made available from the command line (with versions used during testing included in parentheses):
-* R (v3.6.0)
-* Perl (v5.24.2)
+The scripts require R to be installed and made available from the command line (with versions used during testing included in parentheses):
+* R (v3.6.3)
+
 
 The following R packages are also required (with versions used during testing included in parentheses):
-* simpleSingleCell (v1.8.0)
+* simpleSingleCell (v1.10.1)
 * EnsDb.Hsapiens.v86 (v2.99.0)
-* DropletUtils (v1.4.1)
-* scater (v1.12.2)
-* scran (v1.12.1)
-* BiocSingular (v1.0.0)
-* Seurat (v3.0.2)
-* ggplot2 (v3.1.1)
-* svglite (v1.2.2)
-* dplyr (v0.8.1)
+* DropletUtils (v1.6.1)
+* scater (v1.14.6)
+* scran (v1.14.6)
+* BiocSingular (v1.2.2)
+* Seurat (v3.1.4)
+* ggplot2 (v3.3.0)
+* svglite (v1.2.3)
+* dplyr (v0.8.5)
 * magrittr (v1.5)
 * NBID (v0.1.1)
 
@@ -42,67 +42,49 @@ https://support.10xgenomics.com/single-cell-gene-expression/software/downloads/l
 -5- run the Cell Ranger mkref function to index and prepare the new hybrid virus/host reference for use with Cell Ranger.
 
 
-### first script: Run_simpleSingleCell_GenerateObject.R
-generate the filtered/normalized/annotated matrix from the raw Cell Ranger matrix output. This script should be run twice, the first time to generate a filtered/normalized matrix in text (tab-delimited) format and the unfiltered CellID list.  These tables are used to generate the metadata/factors that can then be imported by running the script a second time to produce the final, filtered/normalized/annotated matrix.
+### first script: Run_filter_and_count_virus_*.R
+Generate the filtered/annotated matrix from the raw Cell Ranger matrix output with viral percentages and infection status calls. These scripts were originally designed to be called from the command line but were modified to run interactively due to slight differences between the two cell lines, cal07 and perth09.
 
-#### running the first script, first time:
-run the script from the command line once using the following options:
-- input1: path to raw Cell Ranger matrix files
-- input2: output base file name
+The script performs preliminary quality filtering (empty drops, cell cycle calling, filter cells by detected genes, filter genes by min cells, double calling) and then calculates viral read percentages to call infection status and viral gene presence/absence, resulting in the following outputs:
+- output1: non-normalized SingleCellExperiment object to be read into the Seurat analysis script
+- output2: metadata.tsv file for all cells including viral percentages and calls
+- output3: normalized SingleCellExperiment object of only infected cells to be read into the NBID analysis script
+- output4: variety of graphs for the publication
 
-> e.g. Rscript Run_simpleSingleCell_GenerateObject.R Path/to/Raw/CellRanger/Matrix OutputBaseName
 
-The script performs preliminary quality filtering and count normalization using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
-- output1: filtered, normalized matrix file (tab-delimited text file)
-- output2: raw matrix Cell ID list
+### Seurat script: Seurat_*_tSNEs_MAST.R
+Script to run Seurat and MAST functions in order to generate tSNE plots and DGE tables.
 
-#### generating the metadata table:
-generate the required cell annotations using the filtered, normalized matrix and combine with the raw matrix CellIDs to import back into the matrix object for downstream analysis (see example metadata table: MetaDataTable_Example.txt).
+#### input1: non-normalized SingleCellExperiment object (RDS format)
 
-Required Factors/Cell annotations: Library, CellCycle, StatusInfected, StatusPB2, StatusPB1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS, NumVirusGenes, ClusterID, Doublets
-
-Optional Cell Annotations: TotalVirus, TotalPB2, TotalPB1, TotalPA, TotalHA, TotalNP, TotalNA, TotalM, TotalNS, AnyMissingVirusGenes, AnySingleMissingVirusGene
-
-- Library: experimental library (e.g. treatment).
-- CellCycle: cell cycle stage, as determined by the Cyclone tool in the Scran package (see Run_simpleSingleCell_Scran_CellCycle.R script).
-- StatusInfected: cell infected status based on virus molecular count threshold (e.g. virus count versus expected virus background).
-- Status\[VirusGene\]: virus gene presence/absence based on virus gene molecular count threshold (see StatusInfected).
-- NumVirusGenes: number of virus genes present (i.e. expressed) in cell.
-- Doublets: binary tag (i.e. 1 or 0) for droplets that are considered doublets for filtering purposes.
-
-#### running the first script, second time:
-Run the first script a second time using the following options:
-- input1: path to raw Cell Ranger matrix files
-- input2: output base file name
-- input3: metadata table file name
-
-The script performs preliminary quality filtering, count normalization, and matrix annotation using the SimpleSingleCell package (primarily Scran functions), resulting in the following outputs:
-- output1: filtered, normalized, and annotated matrix file (RDS format) suitable for downstream analysis
-
-### Seurat script: Run_Seurat_tSNEs_MASS.R
-script to run Seurat and MAST functions in order to generate tSNE plots and DGE tables.
-
-#### input1: filtered, normalized, and annotated matrix file (RDS format)
-
-#### output1: high quality tSNE plots for the following:
+#### outputs
+- output1: high quality tSNE plots for the following:
      - all cells: Library, Cell Cycle, Total Virus (proportion)
      - infected cells: Library, Cell Cycle, Total Virus (proportion)
+     - mock cells: Library
+ - output2: Normalized UMI count matrix for infected cells
+ - output3: DGE lists from MAST test
+ - output4: variety of graphs for the publication
+   
     
-#### output2: DGE lists
-     - all cells: Library, Seurat clusters
-     -infected cells: Seurat clusters, StatusPb2, StatusPb1, StatusPA, StatusHA, StatusNP, StatusNA, StatusM, StatusNS
+### NBID script: NBID_NCore_VirGenes_*.sh
+These shell scripts in turn call Run_simpleSingleCell_NBID_NCore_VirGenes.R to run the NBID differential expression testing using multiple cores on a computer cluster using a SLURM scheduler.
 
+#### input1: Normalized SingleCellExperiment object of infected cells only (RDS format)
 
-### Perl Script to Combine DGE tables: CompareLists_DGE.pl
+#### outputs: DGE lists comparing cells expressing or not expressing each viral gene
+
+ 
+### Script to Combine DGE tables: CompareLists_DGE_*.R
 combine differential gene expression tables (i.e. DGE lists) from different tools (i.e. NBID and MAST) or from different factors (e.g. StatusPB2, StatusPB1, and StatusPA) using a minimum intersection value. This allows results to be easily compared or for more robust differentially expressed genes to be selected (i.e. those genes called by both NBID and MAST).
 
 #### inputs:
-     -d: path to a directory containing DGE tables to be combined/compared.  Files must have the .tsv or .txt extention and have the following file name format: FileBaseName_\[MAST/NBID/Combined\]_\[FactorName\].[tsv\txt]
-     -o: output file name
-     -x: minimum intersection value
+    - .txt files output from Seurat_*_tSNEs_MAST.R
+    - .txt files output from NBID_NCore_VirGenes_*.sh
       
  #### outputs:
-     -a tab-delimited table containing the ID column and the FDR/p-value and log2FC columns for each input file. 
+     - a tab-delimited table for each viral gene showing DE genes from both tests and whether each DE gene is unique to that viral gene.
+     - a tab-delimited table with significant and unique DE gene counts for each viral gene.
+     
 
-> e.g. perl CompareLists_DGE.pl -d DGE/input/files/ -o OutputFileName.tsv -x 2
 
