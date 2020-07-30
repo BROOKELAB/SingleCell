@@ -925,6 +925,55 @@ VlnPlot(so_infected, features = "TRIM28", assay = "SCT",
 ggsave("results/Seurat_output/cal07_VlnPlot_TRIM28_2020-05-13.jpeg")
 
 
+
+## Do tSNE of bystander cells ----
+
+so_bystander <- subset(so, subset = Library == "Bystander" & InfectedStatus == "NotInfected")
+
+
+#Do SCTransform normalization
+#NOTE: this will remove more genes because they aren't expressed in 
+#just the bystander cells
+
+so_bystander
+so_bystander <- SCTransform(so_bystander, return.only.var.genes = FALSE)
+so_bystander
+
+tail(rownames(so_bystander))
+
+#output normalized UMI values
+
+temp <- as.matrix(so_bystander[["SCT"]]@counts)
+#wait to add seurat clusters
+
+
+#remove viral genes redo PCA, and tSNE for bystander cells ----
+newNum <- nrow(so_bystander)-7
+so_bystander <- so_bystander[1:newNum ,]
+so_bystander <- RunPCA(so_bystander, features = all.genes, seed.use = seed)
+so_bystander <- FindNeighbors(so_bystander, dims = 1:40)
+so_bystander <- FindClusters(so_bystander, resolution = 0.5,random.seed = seed)
+so_bystander <- RunTSNE(object = so_bystander, dims = 1:40, perplexity = perp, seed.use = seed)
+
+Idents(so_bystander) <- "seurat_clusters"
+plot <- DimPlot(so_bystander, reduction = "tsne",pt.size = 1)
+x11(width = 8, height = 7)
+plot + theme(title = element_text(size = rel(1.5)), plot.title = element_text(size = rel(2)), legend.text = element_text(size = rel(1.25)))
+out.file <- "results/Seurat_output/cal07_Seurat_tSNE_bystander_SeuratClusters_2020-07-30.jpeg"
+ggsave(out.file, width = 8, height = 7)
+
+out.file <- "results/Seurat_output/cal07_NormalizedUMI_bystander_2020-07-30.txt"
+
+temp2 <- t(so_bystander[[]][,c("seurat_clusters","NS_status")]) %>% as.data.frame() 
+all.equal(colnames(temp), colnames(temp2))
+
+rbind(as.data.frame(temp),temp2) %>% tibble::rownames_to_column(var = "gene") %>%
+  write.table(file = out.file,
+              row.names = FALSE, sep = "\t")
+
+
+
+
 save.image("results/Seurat_output/cal07.RData")
 
 sessionInfo()
